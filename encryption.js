@@ -1,23 +1,31 @@
 // Write your package code here!
 Encryption = {
+  docToUpdate: {},
+  setKeypair: function (privateKey, publicKey) {
+    var self = this;
+    self.keyPairForNextEncryption = {
+      privateKey: privateKey,
+      publicKey: publicKey
+    };
+  },
   // encrypts a doc with the given configuration
-  encryptDoc: function(doc, fields, name) {
+  encryptDocWithId: function (docId, fields, name) {
     var self = this;
     // client only so this works :)
     var user = Meteor.user();
+    // get stored doc
+    var doc = self.docToUpdate;
     // generate a id for the document in order to have one bevore inserting it
-    doc._id = new Meteor.Collection.ObjectID()._str;
-    // use a 2048 bit rsa key
-    var key = new RSA({
-      b: 512
-    });
+    doc._id = docId;
+    var key = new RSA(self.keyPairForNextEncryption.privateKey);
     // create public and private keys for the post principal
     var publicKey = key.exportKey('public');
     var privateKey = key.exportKey('private');
 
     // encrypt the message with the public key of the post principal
-    _.each(fields, function(field) {
-      doc[field] = key.encrypt(doc[field], 'base64');
+    var newDoc = {};
+    _.each(fields, function (field) {
+      newDoc[field] = key.encrypt(doc[field], 'base64');
     });
 
     // get the principal of the user
@@ -37,10 +45,11 @@ Encryption = {
         key: privateKey
       }]
     });
+    return newDoc;
   },
 
   // decrypts a doc with the given configuration
-  decryptDoc: function(doc, fields, name) {
+  decryptDoc: function (doc, fields, name) {
     var self = this;
     // get principal
     var principal = self.getPrincipal(name, doc._id);
@@ -49,29 +58,31 @@ Encryption = {
       return doc;
     }
     // get decrypted private key of principal
-    var decryptedPrincipalPrivateKey = self.getPrivateKeyOfPrincipal(principal);
+    var decryptedPrincipalPrivateKey = self.getPrivateKeyOfPrincipal(
+      principal);
     // return if something went wrong
     if (!decryptedPrincipalPrivateKey) {
       return doc;
     }
     // decrypt each given field
-    _.each(fields, function(field) {
-      doc[field] = self.decryptWithRsaKey(doc[field], decryptedPrincipalPrivateKey);
+    _.each(fields, function (field) {
+      doc[field] = self.decryptWithRsaKey(doc[field],
+        decryptedPrincipalPrivateKey);
     });
     return doc;
   },
   // encrypts the given message with a key
-  encryptWithRsaKey: function(message, key) {
+  encryptWithRsaKey: function (message, key) {
     var userKey = new RSA(key);
     return userKey.encrypt(message, 'base64');
   },
   // decrypts the given message with a key
-  decryptWithRsaKey: function(message, key) {
+  decryptWithRsaKey: function (message, key) {
     var postKey = new RSA(key);
     return postKey.decrypt(message, 'utf8');
   },
   // get private key of given principal
-  getPrivateKeyOfPrincipal: function(principal) {
+  getPrivateKeyOfPrincipal: function (principal) {
     var self = this,
       user = Meteor.user(),
       searchObj = {
@@ -87,13 +98,13 @@ Encryption = {
     return self.decryptWithRsaKey(encryptedKeys[0].key, privateKey);
   },
   // search if a principal for the given params exists
-  getPrincipal: function(type, id) {
+  getPrincipal: function (type, id) {
     return Principals.findOne({
       ownerType: type,
       ownerId: id
     });
   },
-  shareDocWithUser: function(docId, docType, userId) {
+  shareDocWithUser: function (docId, docType, userId) {
     var self = this;
     // find principal of user to share post with
     var userPrincipal = self.getPrincipal('user', userId);
@@ -105,7 +116,8 @@ Encryption = {
     // fint principal of post
     var principal = self.getPrincipal(docType, docId);
     if (!principal) {
-      console.warn('no principal found for ' + docType + ' with id: ' + docId);
+      console.warn('no principal found for ' + docType + ' with id: ' +
+        docId);
       return;
     }
     var principalKey = self.getPrivateKeyOfPrincipal(principal);
@@ -123,7 +135,7 @@ Encryption = {
       }
     });
   },
-  extendProfile: function(password) {
+  extendProfile: function (password) {
 
     // generate keypair
     var key = new RSA({
