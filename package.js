@@ -13,12 +13,28 @@ Package.describe({
 Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
 
-  api.use(['planifica:node-rsa', 'jparker:crypto-aes'], 'client');
+  api.use(['underscore', 'planifica:node-rsa', 'jparker:crypto-aes'], 'client');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
+
+  // rsa
+  api.addFiles('jsbn-master/base64.js', 'client');
+  api.addFiles('jsbn-master/ec.js', 'client');
+  api.addFiles('jsbn-master/jsbn.js', 'client');
+  api.addFiles('jsbn-master/jsbn2.js', 'client');
+  api.addFiles('jsbn-master/prng4.js', 'client');
+  api.addFiles('jsbn-master/rng.js', 'client');
+  api.addFiles('jsbn-master/rsa.js', 'client');
+  api.addFiles('jsbn-master/rsa2.js', 'client');
+  api.addFiles('jsbn-master/sec.js', 'client');
+  api.addFiles('jsbn-master/sha1.js', 'client');
+
+  // rsa async
+  api.addFiles('rsasync-master/rsasync.js', 'client');
 
   api.addFiles('encryption.js', 'client');
 
-  api.export('Encryption');
+  api.export('CollectionEncryption');
+  api.export('EncryptionUtils');
 });
 
 Package.onTest(function(api) {
