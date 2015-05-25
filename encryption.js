@@ -174,14 +174,14 @@ EncryptionUtils = {
  * @param collection - the collection instance
  * @param fields - array of fields which will be encrypted
  */
-CollectionEncryption = function(collection, name, fields, schema) {
+CollectionEncryption = function (collection, name, fields, schema) {
   var self = this;
   // create a new instance of the mongo collection
   self.collection = collection;
   // store the properties
   self.fields = fields;
   self.schema = schema;
-  self.principalName = name+'Principal';
+  self.principalName = name + 'Principal';
 
   // listen to findOne events from the database
   self._listenToFinds();
@@ -194,11 +194,12 @@ _.extend(CollectionEncryption.prototype, {
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
    */
-  _listenToFinds: function() {
+  _listenToFinds: function () {
     var self = this;
 
-    self.collection.after.findOne(function(userId, selector, options, doc){
-      if(!Meteor.user()){
+    self.collection.after.findOne(function (userId, selector, options,
+      doc) {
+      if (!Meteor.user()) {
         return;
       }
       EncryptionUtils.decryptDoc(doc, self.fields, self.principalName);
@@ -208,7 +209,7 @@ _.extend(CollectionEncryption.prototype, {
    * listen to insert operations on the given collection in order to encrypt
    * automtically
    */
-  _listeToInserts: function() {
+  _listeToInserts: function () {
     var self = this;
 
     self.collection.before.insert(function (userId, doc) {
@@ -219,32 +220,44 @@ _.extend(CollectionEncryption.prototype, {
       // tell the encryption package what data needs to encrypted next
       EncryptionUtils.docToUpdate = _.clone(doc);
       // unset fields that will be encrypted
-      _.each(self.fields, function(field){
+      _.each(self.fields, function (field) {
         doc[field] = '';
       });
 
       // unload warning while generating keys
-  		$(window).bind('beforeunload', function(){
-  		  return 'Encryption will fail if you leave now!';
-  		});
+      $(window).bind('beforeunload', function () {
+        return 'Encryption will fail if you leave now!';
+      });
     });
 
-    self.collection.after.insert(function(){
+    self.collection.after.insert(function () {
       var postId = this._id;
       var key = new RSAKey();
       // generate a 1024 bit key async
-  		key.generateAsync(1024, "03", function(){
+      key.generateAsync(1024, "03", function () {
         // store keypair
-  			EncryptionUtils.setKeypair(key.privatePEM(),key.publicPEM());
+        EncryptionUtils.setKeypair(key.privatePEM(), key.publicPEM());
         // get encrypted doc
-  			var encryptedDoc = EncryptionUtils.encryptDocWithId(postId, self.fields, self.principalName);
+        var encryptedDoc = EncryptionUtils.encryptDocWithId(
+          postId, self.fields, self.principalName);
         // update doc with encrypted fields
-  			self.collection.update({_id: postId}, {$set: encryptedDoc});
+        self.collection.update({
+          _id: postId
+        }, {
+          $set: encryptedDoc
+        });
         // ui feedback
-  			// Materialize.toast(TAPi18n.__('postInsertedSuccessfully'), 4000);
+        // Materialize.toast(TAPi18n.__('postInsertedSuccessfully'), 4000);
         // unbind unload warning
-  			$(window).unbind('beforeunload');
-  		});
+        $(window).unbind('beforeunload');
+      });
     });
+  },
+  /**
+   * shares the doc with the given id with the user with the given id
+   */
+  shareDocWithUser: function (docId, userId) {
+    var self = this;
+    EncryptionUtils.shareDocWithUser(docId, self.principalName, userId);
   }
 });
