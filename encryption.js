@@ -138,35 +138,38 @@ EncryptionUtils = {
       }
     });
   },
-  extendProfile: function (password) {
-
+  extendProfile: function (password, callback) {
+    var userId = Meteor.userId();
     // generate keypair
-    var key = new RSA({
-      b: 1024
-    });
-    // export public and private key
-    var publicKey = key.exportKey('public');
-    var privateKey = key.exportKey('private');
-    // encrypt the user's private key
-    var encryptedPrivateKey = CryptoJS.AES.encrypt(privateKey, password);
+    var key = new RSAKey();
+    // generate a 1024 bit key async
+    key.generateAsync(1024, "03", function () {
+      // store the raw private key in the session
+      Session.setAuth('privateKey', key.privatePEM());
+      // encrypt the user's private key
+      var privateKey = CryptoJS.AES.encrypt(key.privatePEM(), password);
 
-    function callback(userId) {
+      Meteor.users.update({_id: userId}, {
+        $set: {
+          'profile.privateKey': privateKey.toString()
+          }
+      });
       // add a principal for the user
       Principals.insert({
         ownerType: 'user',
         ownerId: userId,
-        publicKey: publicKey
+        publicKey: key.publicPEM()
       });
-    }
 
-    // return private key and callback
-    return {
-      profileExtension: {
-        privateKey: encryptedPrivateKey.toString()
-      },
-      callback: callback
-    };
+      callback();
+    });
+
   },
+  onSignIn: function(password) {
+    var user = Meteor.user();
+    var privateKey = CryptoJS.AES.decrypt(user.profile.privateKey, password);
+    Session.setAuth('privateKey', privateKey.toString(CryptoJS.enc.Utf8));
+  }
 };
 
 /**
