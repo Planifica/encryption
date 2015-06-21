@@ -149,11 +149,7 @@ EncryptionUtils = {
       // encrypt the user's private key
       var privateKey = CryptoJS.AES.encrypt(key.privatePEM(), password);
 
-      Meteor.users.update({_id: userId}, {
-        $set: {
-          'profile.privateKey': privateKey.toString()
-          }
-      });
+      Meteor.call('storeEncryptedPrivateKey', privateKey.toString());
       // add a principal for the user
       Principals.insert({
         ownerType: 'user',
@@ -189,7 +185,7 @@ CollectionEncryption = function (collection, name, fields, schema) {
   // listen to findOne events from the database
   self._listenToFinds();
   // listen to before insert and after insert events
-  self._listeToInserts();
+  self._listenToInserts();
 };
 
 _.extend(CollectionEncryption.prototype, {
@@ -205,6 +201,9 @@ _.extend(CollectionEncryption.prototype, {
       if (!Meteor.user()) {
         return;
       }
+      if(!doc){
+        return;
+      }
       EncryptionUtils.decryptDoc(doc, self.fields, self.principalName);
     });
   },
@@ -212,28 +211,32 @@ _.extend(CollectionEncryption.prototype, {
    * listen to insert operations on the given collection in order to encrypt
    * automtically
    */
-  _listeToInserts: function () {
+  _listenToInserts: function () {
     var self = this;
 
     self.collection.before.insert(function (userId, doc) {
       // check if doc matches the schema
       if (!Match.test(doc, self.schema)) {
-        return false;
+        return doc;
       }
       // tell the encryption package what data needs to encrypted next
       EncryptionUtils.docToUpdate = _.clone(doc);
       // unset fields that will be encrypted
       _.each(self.fields, function (field) {
-        doc[field] = '';
+        doc[field] = '--';
       });
 
       // unload warning while generating keys
       $(window).bind('beforeunload', function () {
         return 'Encryption will fail if you leave now!';
       });
+      return doc;
     });
 
     self.collection.after.insert(function () {
+      if(!this._id) {
+        return;
+      }
       var postId = this._id;
       var key = new RSAKey();
       // generate a 1024 bit key async

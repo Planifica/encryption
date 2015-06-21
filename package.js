@@ -14,7 +14,10 @@ Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
 
   api.use(['underscore', 'planifica:node-rsa', 'jparker:crypto-aes'], 'client');
-  api.use('u2622:persistent-session@=0.3.3', 'client');
+  api.use('u2622:persistent-session@0.3.5', 'client');
+  api.use('aldeed:simple-schema');
+  api.use('ongoworks:security');
+  api.use('dburles:collection-helpers');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
 
   // rsa
@@ -32,6 +35,8 @@ Package.onUse(function(api) {
   // rsa async
   api.addFiles('rsasync-master/rsasync.js', 'client');
 
+  api.addFiles('principals.js', ['client', 'server']);
+  api.addFiles('server.js', 'server');
   api.addFiles('encryption.js', 'client');
 
   api.export('CollectionEncryption');
