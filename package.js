@@ -17,7 +17,6 @@ Package.onUse(function(api) {
   api.use('u2622:persistent-session@0.3.5', 'client');
   api.use('aldeed:simple-schema');
   api.use('ongoworks:security');
-  api.use('dburles:collection-helpers');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
 
   // rsa
