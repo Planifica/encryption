@@ -118,7 +118,7 @@ EncryptionUtils = {
     }
   },
   // encrypts the given message with a key
-  __encryptWithRsaKey: function (message, key) {
+  _encryptWithRsaKey: function (message, key) {
     var userKey = new RSA(key);
     return userKey.encrypt(message, 'base64');
   },
