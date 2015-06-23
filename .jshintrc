@@ -123,6 +123,8 @@
       // globals useful when creating Meteor packages
       "Npm": false,
       "Tinytest": false,
+      "SimpleSchema": false,
+      "Security": false,
 
       // common Meteor packages
       "Random": false,
