@@ -6,29 +6,33 @@ EncryptionUtils = {
   docToUpdate: {},
   setKeypair: function (privateKey, publicKey) {
     var self = this;
+
     self.keyPairForNextEncryption = {
       privateKey: privateKey,
       publicKey: publicKey
     };
   },
-  // encrypts a doc with the given configuration
-  encryptDocWithId: function (docId, fields, name) {
+  /*
+   * encrypts certain fields of the given document
+   * @param doc - the document to decrypt
+   * @param fields - the fields of the document to be dercypted
+   * @param name - the name of the principal that belongs to the document
+   * @param asyncEncryption - use RSA if true, else use AES
+   */
+  encryptDocWithId: function (docId, fields, name, asyncEncryption) {
     var self = this;
+    var asyncCrypto = asyncEncryption || true;
     // client only so this works :)
     var user = Meteor.user();
     // get stored doc
     var doc = self.docToUpdate;
     // generate a id for the document in order to have one bevore inserting it
     doc._id = docId;
-    var key = new RSA(self.keyPairForNextEncryption.privateKey);
-    // create public and private keys for the post principal
-    var publicKey = key.exportKey('public');
-    var privateKey = key.exportKey('private');
 
     // encrypt the message with the public key of the post principal
     var newDoc = {};
     _.each(fields, function (field) {
-      newDoc[field] = key.encrypt(doc[field], 'base64');
+      newDoc[field] = self.encryptWithKey(doc[field], self.keyPairForNextEncryption.privateKey, asyncCrypto);
     });
 
     // get the principal of the user
@@ -55,12 +59,13 @@ EncryptionUtils = {
       Principals.remove({_id: existingPrincipal._id});
     }
     // encrypt the private key with the users public key
-    privateKey = self.encryptWithRsaKey(privateKey, userPrincipal.publicKey);
+    var privateKey = self.encryptWithKey(self.keyPairForNextEncryption.privateKey, userPrincipal.publicKey, asyncCrypto);
     // create the principle in the database
     Principals.insert({
       dataType: name,
       dataId: doc._id,
-      publicKey: publicKey,
+      // TODO store public key if async encryption - not needed at the moment though
+      // publicKey: self.keyPairForNextEncryption.publicKey,
       encryptedPrivateKeys: [{
         userId: user._id,
         key: privateKey
@@ -72,10 +77,16 @@ EncryptionUtils = {
     });
     return newDoc;
   },
-
-  // decrypts a doc with the given configuration
-  decryptDoc: function (doc, fields, name) {
+  /*
+   * decrypts certain fields of the given document
+   * @param doc - the document to decrypt
+   * @param fields - the fields of the document to be dercypted
+   * @param name - the name of the principal that belongs to the document
+   * @param asyncEncryption - use RSA if true, else use AES
+   */
+  decryptDoc: function (doc, fields, name, asyncEncryption) {
     var self = this;
+    var asyncCrypto = asyncEncryption || true;
     // get principal
     var principal = self.getPrincipal(name, doc._id);
     // return if the doc was not encrypted correctly
@@ -91,23 +102,62 @@ EncryptionUtils = {
     }
     // decrypt each given field
     _.each(fields, function (field) {
-      doc[field] = self.decryptWithRsaKey(doc[field],
-        decryptedPrincipalPrivateKey);
+      doc[field] = self.decryptWithKey(doc[field],
+        decryptedPrincipalPrivateKey, asyncCrypto);
     });
     return doc;
+  },
+  /*
+   * encrypts a given message with the given key using RSA or AES
+   */
+  encryptWithKey: function (message, key, async){
+    var self = this;
+    if(async) {
+      return self.encryptWithRsaKey(message, key);
+    } else {
+      return self.encryptWithAesKey(message, key);
+    }
   },
   // encrypts the given message with a key
   encryptWithRsaKey: function (message, key) {
     var userKey = new RSA(key);
     return userKey.encrypt(message, 'base64');
   },
+  encryptWithAesKey: function (message, key) {
+    var encryptedMessage = CryptoJS.AES.encrypt(message, key);
+    return encryptedMessage.toString();
+  },
+  /*
+   * decrypts a given message with the given key using RSA or AES
+   */
+  decryptWithKey: function (message, key, async){
+    var self = this;
+    if(async) {
+      return self.decryptWithRsaKey(message, key);
+    } else {
+      return self.decryptWithAesKey(message, key);
+    }
+  },
   // decrypts the given message with a key
   decryptWithRsaKey: function (message, key) {
     var postKey = new RSA(key);
     return postKey.decrypt(message, 'utf8');
   },
-  // get private key of given principal
+  decryptWithAesKey: function (message, key) {
+    var decryptedMessage = CryptoJS.AES.decrypt(message, key);
+    return decryptedMessage.toString(CryptoJS.enc.Utf8);
+  },
+  /*
+   * get private key of given principal
+   * this method is the same for Principals using RSA
+   * and for Principals using AES, since the key of the Principal gets
+   * encrypted asynchronously anyway
+   */
   getPrivateKeyOfPrincipal: function (principal) {
+
+    // TODO add check
+    // check(principal, Schema.Principal);
+
     var self = this,
       user = Meteor.user(),
       searchObj = {
@@ -129,6 +179,10 @@ EncryptionUtils = {
       dataId: id
     });
   },
+  /*
+   * shares the given doc with the given user
+   * by encrypting the principal key of the doc with the publicKey of the user
+   */
   shareDocWithUser: function (docId, docType, userId) {
     var self = this;
     // find principal of user to share post with
@@ -160,7 +214,12 @@ EncryptionUtils = {
       }
     });
   },
+  /*
+   * extends the current user's profile with his (encrypted) privateKey
+   * this key gets encrypted with his password via AES
+   */
   extendProfile: function (password, callback) {
+    var self = this;
     var userId = Meteor.userId();
     // generate keypair
     var key = new RSAKey();
@@ -169,9 +228,9 @@ EncryptionUtils = {
       // store the raw private key in the session
       Session.setAuth('privateKey', key.privatePEM());
       // encrypt the user's private key
-      var privateKey = CryptoJS.AES.encrypt(key.privatePEM(), password);
+      var privateKey = self.encryptWithAesKey(key.privatePEM(), password);
 
-      Meteor.call('storeEncryptedPrivateKey', privateKey.toString());
+      Meteor.call('storeEncryptedPrivateKey', privateKey);
       // add a principal for the user
       Principals.insert({
         dataType: 'user',
@@ -183,10 +242,15 @@ EncryptionUtils = {
     });
 
   },
+  /*
+   * decrypts the users privateKey with the given password via AES
+   * @param password
+   */
   onSignIn: function(password) {
+    var self = this;
     var user = Meteor.user();
-    var privateKey = CryptoJS.AES.decrypt(user.profile.privateKey, password);
-    Session.setAuth('privateKey', privateKey.toString(CryptoJS.enc.Utf8));
+    var privateKey = self.decryptWithAesKey(user.profile.privateKey, password);
+    Session.setAuth('privateKey', privateKey);
   }
 };
 
@@ -194,9 +258,12 @@ EncryptionUtils = {
  * register a collection to encrypt/decrypt automtically
  * @param collection - the collection instance
  * @param fields - array of fields which will be encrypted
+ * @param schema - the schema used for the collection
+ * @param asyncCrypto: Boolean - wether to use RSA(true) or AES(false)
  */
-CollectionEncryption = function (collection, name, fields, schema) {
+CollectionEncryption = function (collection, name, fields, schema, asyncCrypto) {
   var self = this;
+  self.asyncCrypto = asyncCrypto || true;
   // create a new instance of the mongo collection
   self.collection = collection;
 
@@ -365,11 +432,9 @@ _.extend(CollectionEncryption.prototype, {
     if(!doc._id) {
       return;
     }
-    var key = new RSAKey();
-    // generate a 1024 bit key async
-    key.generateAsync(1024, "03", function () {
+    self.generateKey(function (privateKey, publicKey) {
       // store keypair
-      EncryptionUtils.setKeypair(key.privatePEM(), key.publicPEM());
+      EncryptionUtils.setKeypair(privateKey, publicKey);
       // get encrypted doc
       var encryptedDoc = EncryptionUtils.encryptDocWithId(
         doc._id, self.fields, self.principalName);
@@ -386,6 +451,22 @@ _.extend(CollectionEncryption.prototype, {
       // unbind unload warning
       $(window).unbind('beforeunload');
     });
+  },
+  generateKey: function (callback) {
+    var self = this;
+    var key = null;
+    if (self.asyncCrypto === true) {
+      key = new RSAKey();
+      // generate a 1024 bit key async
+      key.generateAsync(1024, "03", function () {
+        callback(key.privatePEM(), key.publicPEM());
+      });
+    } else {
+      if (window.secureShared && window.secureShared.generatePassphrase) {
+        key = window.secureShared.generatePassphrase;
+        callback(key);
+      }
+    }
   },
   /**
    * shares the doc with the given id with the user with the given id

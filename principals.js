@@ -12,7 +12,8 @@ Schema.Principal = new SimpleSchema({
     type: String
   },
   publicKey: {
-    type: String
+    type: String,
+    optional: true
   },
   encryptedPrivateKeys: {
     type: [Object],
