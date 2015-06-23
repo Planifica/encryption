@@ -95,14 +95,12 @@ EncryptionUtils = {
     // get decrypted private key of principal -- needs to be async
     var decryptedPrincipalPrivateKey = self.getPrivateKeyOfPrincipal(
       principal, true);
-      console.log(decryptedPrincipalPrivateKey);
     // return if something went wrong
     if (!decryptedPrincipalPrivateKey) {
       return doc;
     }
     // decrypt each given field
     _.each(fields, function (field) {
-      console.log('decrypt '+doc[field]+'with'+decryptedPrincipalPrivateKey);
       doc[field] = self.decryptWithKey(doc[field],
         decryptedPrincipalPrivateKey, asyncCrypto);
     });
@@ -125,9 +123,7 @@ EncryptionUtils = {
     return userKey.encrypt(message, 'base64');
   },
   _encryptWithAesKey: function (message, key) {
-    console.log('encrypt '+message+' with '+key);
     var encryptedMessage = CryptoJS.AES.encrypt(message, key);
-    console.log('result '+ encryptedMessage.toString());
     return encryptedMessage.toString();
   },
   /*
@@ -147,9 +143,7 @@ EncryptionUtils = {
     return postKey.decrypt(message, 'utf8');
   },
   _decryptWithAesKey: function (message, key) {
-    console.log('decrypt '+message+' with '+key);
     var decryptedMessage = CryptoJS.AES.decrypt(message, key);
-    console.log('result '+ decryptedMessage.toString(CryptoJS.enc.Utf8));
     return decryptedMessage.toString(CryptoJS.enc.Utf8);
   },
   /*
@@ -256,7 +250,7 @@ EncryptionUtils = {
   onSignIn: function(password) {
     var self = this;
     var user = Meteor.user();
-    var privateKey = self.decryptWithAesKey(user.profile.privateKey, password);
+    var privateKey = self._decryptWithAesKey(user.profile.privateKey, password);
     Session.setAuth('privateKey', privateKey);
   }
 };
