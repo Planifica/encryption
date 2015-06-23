@@ -41,14 +41,15 @@ EncryptionUtils = {
       dataType: name,
       dataId: doc._id
     });
+    var shareWithUsers = [];
     if (existingPrincipal) {
       // find all users that had access to the encrypted data
-      var shareWithUsers = _.map(existingPrincipal.encryptedPrivateKeys, function(obj){
+      shareWithUsers = _.map(existingPrincipal.encryptedPrivateKeys, function(obj){
         return obj.userId;
       });
       // filter out the owner, so he does not get readded
       shareWithUsers = _.filter(shareWithUsers, function(userId) {
-        return userId !== user._id
+        return userId !== user._id;
       });
       // remove the old principal
       Principals.remove({_id: existingPrincipal._id});
