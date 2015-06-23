@@ -118,7 +118,7 @@ EncryptionUtils = {
     }
   },
   // encrypts the given message with a key
-  _encryptWithRsaKey: function (message, key) {
+  __encryptWithRsaKey: function (message, key) {
     var userKey = new RSA(key);
     return userKey.encrypt(message, 'base64');
   },
@@ -202,7 +202,7 @@ EncryptionUtils = {
     }
     var principalKey = self.getPrivateKeyOfPrincipal(principal, useAsyncCrypto);
 
-    var key = self.encryptWithRsaKey(principalKey, userPrincipal.publicKey);
+    var key = self._encryptWithRsaKey(principalKey, userPrincipal.publicKey);
 
     Principals.update({
       _id: principal._id
@@ -229,7 +229,7 @@ EncryptionUtils = {
       // store the raw private key in the session
       Session.setAuth('privateKey', key.privatePEM());
       // encrypt the user's private key
-      var privateKey = self.encryptWithAesKey(key.privatePEM(), password);
+      var privateKey = self._encryptWithAesKey(key.privatePEM(), password);
 
       Meteor.call('storeEncryptedPrivateKey', privateKey);
       // add a principal for the user
