@@ -2,7 +2,10 @@ this.Principals = new Meteor.Collection("principals");
 
 var Schema = {};
 Schema.Principal = new SimpleSchema({
-  ownerType: {
+  dataType: {
+    type: String
+  },
+  dataId: {
     type: String
   },
   ownerId: {
@@ -24,6 +27,11 @@ Schema.Principal = new SimpleSchema({
 });
 
 Principals.attachSchema(Schema.Principal);
+
+Principals.before.insert(function(userId, doc){
+  doc.ownerId = userId;
+  return doc;
+});
 
 Meteor.users.attachSchema({
   // gets encrypted with the users password

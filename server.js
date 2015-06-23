@@ -29,5 +29,7 @@ Principals.permit(['update', 'remove'])
     .apply();
 
 Meteor.publish("principals", function() {
-	return Principals.find();
+	return Principals.find({
+    ownerId: this.userId
+  });
 });
