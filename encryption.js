@@ -177,6 +177,7 @@ CollectionEncryption = function (collection, name, fields, schema) {
   var self = this;
   // create a new instance of the mongo collection
   self.collection = collection;
+
   // store the properties
   self.fields = fields;
   self.schema = schema;
@@ -215,6 +216,8 @@ _.extend(CollectionEncryption.prototype, {
     var self = this;
 
     self.collection.before.insert(function (userId, doc) {
+
+      doc.encrypted = false;
       // check if doc matches the schema
       if (!Match.test(doc, self.schema)) {
         return doc;
@@ -225,7 +228,7 @@ _.extend(CollectionEncryption.prototype, {
       _.each(self.fields, function (field) {
         doc[field] = '--';
       });
-
+      
       // unload warning while generating keys
       $(window).bind('beforeunload', function () {
         return 'Encryption will fail if you leave now!';
@@ -246,6 +249,8 @@ _.extend(CollectionEncryption.prototype, {
         // get encrypted doc
         var encryptedDoc = EncryptionUtils.encryptDocWithId(
           postId, self.fields, self.principalName);
+
+        encryptedDoc.encrypted = true;
         // update doc with encrypted fields
         self.collection.update({
           _id: postId
