@@ -223,7 +223,7 @@ _.extend(CollectionEncryption.prototype, {
       });
     } else {
       if (window.secureShared && window.secureShared.generatePassphrase) {
-        key = window.secureShared.generatePassphrase();
+        key = CryptoJS.lib.WordArray.random(16).toString();
         callback(key);
       }
     }
