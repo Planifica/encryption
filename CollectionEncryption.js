@@ -31,6 +31,15 @@ CollectionEncryption = function (collection, name, fields, schema, asyncCrypto) 
 };
 
 _.extend(CollectionEncryption.prototype, {
+
+  /*
+   * gets called once a key is generated
+   * should be defiend by the user
+   * @param privateKey
+   * @param publicKey
+   * @param documentId
+   */
+  onKeyGenerated: function(/* privateKey, publicKey, documentId */){},
   /**
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
@@ -181,6 +190,9 @@ _.extend(CollectionEncryption.prototype, {
       return;
     }
     self.generateKey(function (privateKey, publicKey) {
+      if(_.isFunction(self.onKeyGenerated)){
+        self.onKeyGenerated(privateKey, publicKey, doc._id);
+      }
       // store keypair
       EncryptionUtils.setKeypair(privateKey, publicKey);
       // get encrypted doc
