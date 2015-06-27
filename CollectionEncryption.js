@@ -37,9 +37,9 @@ _.extend(CollectionEncryption.prototype, {
    * should be defiend by the user
    * @param privateKey
    * @param publicKey
-   * @param documentId
+   * @param document
    */
-  onKeyGenerated: function(/* privateKey, publicKey, documentId */){},
+  onKeyGenerated: function(/* privateKey, publicKey, document */){},
   /**
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
@@ -72,8 +72,8 @@ _.extend(CollectionEncryption.prototype, {
       self.startDocEncryption(userId, doc);
     });
 
-    self.collection.after.insert(function() {
-      self.finishDocEncryption(this);
+    self.collection.after.insert(function(userId, doc) {
+      self.finishDocEncryption(doc);
     });
   },
   /**
@@ -191,7 +191,7 @@ _.extend(CollectionEncryption.prototype, {
     }
     self.generateKey(function (privateKey, publicKey) {
       if(_.isFunction(self.onKeyGenerated)){
-        self.onKeyGenerated(privateKey, publicKey, doc._id);
+        self.onKeyGenerated(privateKey, publicKey, doc);
       }
       // store keypair
       EncryptionUtils.setKeypair(privateKey, publicKey);
