@@ -156,6 +156,9 @@ EncryptionUtils = {
 
     // TODO add check
     // check(principal, Schema.Principal);
+    if(!principal){
+      return;
+    }
 
     var self = this,
       useAsyncCrypto = asyncCrypto !== false,
