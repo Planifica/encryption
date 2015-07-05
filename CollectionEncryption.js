@@ -126,6 +126,7 @@ _.extend(CollectionEncryption.prototype, {
     }
     // check if doc matches the schema
     if (!Match.test(doc, self.schema)) {
+      console.log(check(doc, self.schema));
       return doc;
     }
     // tell the encryption package what data needs to encrypted next
@@ -191,7 +192,7 @@ _.extend(CollectionEncryption.prototype, {
     }
     self.generateKey(function (privateKey, publicKey) {
       if(_.isFunction(self.onKeyGenerated)){
-        self.onKeyGenerated(privateKey, publicKey, doc);
+        self.onKeyGenerated(privateKey, publicKey, EncryptionUtils.docToUpdate);
       }
       // store keypair
       EncryptionUtils.setKeypair(privateKey, publicKey);
