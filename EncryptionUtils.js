@@ -2,7 +2,7 @@
 /* global RSAKey:true */
 
 EncryptionUtils = {
-  docToUpdate: {},
+  docToUpdate: null,
   setKeypair: function (privateKey, publicKey) {
     var self = this;
 

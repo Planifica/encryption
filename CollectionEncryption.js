@@ -164,8 +164,9 @@ _.extend(CollectionEncryption.prototype, {
         needsEncryption = true;
       }
     });
+    
     if(!needsEncryption){
-      return;
+      return modifier;
     }else{
       modifier.$set.encrypted = false;
     }
@@ -187,7 +188,7 @@ _.extend(CollectionEncryption.prototype, {
   finishDocEncryption: function(doc) {
     var self = this;
 
-    if(!doc._id) {
+    if(!doc._id || !EncryptionUtils.docToUpdate) {
       return;
     }
     self.generateKey(function (privateKey, publicKey) {
@@ -211,6 +212,7 @@ _.extend(CollectionEncryption.prototype, {
       });
       // unbind unload warning
       $(window).unbind('beforeunload');
+      EncryptionUtils.docToUpdate = null;
     });
   },
   generateKey: function (callback) {
