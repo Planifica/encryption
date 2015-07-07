@@ -39,7 +39,7 @@ _.extend(CollectionEncryption.prototype, {
    * @param publicKey
    * @param document
    */
-  onKeyGenerated: function(/* privateKey, publicKey, document */){},
+  onKeyGenerated: function ( /* privateKey, publicKey, document */ ) {},
   /**
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
@@ -47,18 +47,20 @@ _.extend(CollectionEncryption.prototype, {
   _listenToFinds: function () {
     var self = this;
 
-    self.collection.after.findOne(function (userId, selector, options,
+    self.collection.after.findOne(function (userId, selector,
+      options,
       doc) {
       if (!Meteor.user()) {
         return;
       }
-      if(!doc){
+      if (!doc) {
         return;
       }
-      if(!doc.encrypted){
+      if (!doc.encrypted) {
         return;
       }
-      EncryptionUtils.decryptDoc(doc, self.fields, self.principalName, self.asyncCrypto);
+      EncryptionUtils.decryptDoc(doc, self.fields,
+        self.principalName, self.asyncCrypto);
     });
   },
   /**
@@ -68,11 +70,11 @@ _.extend(CollectionEncryption.prototype, {
   _listenToInserts: function () {
     var self = this;
 
-    self.collection.before.insert(function(userId, doc) {
+    self.collection.before.insert(function (userId, doc) {
       self.startDocEncryption(userId, doc);
     });
 
-    self.collection.after.insert(function(userId, doc) {
+    self.collection.after.insert(function (userId, doc) {
       self.finishDocEncryption(doc);
     });
   },
@@ -83,12 +85,16 @@ _.extend(CollectionEncryption.prototype, {
   _listenToUpdates: function () {
     var self = this;
 
-    self.collection.before.update(function(userId, doc, fieldNames, modifier) {
-      var decryptedDoc = self.collection.findOne({_id: doc._id});
-      modifier = self.startDocUpdate(userId, decryptedDoc, fieldNames, modifier);
+    self.collection.before.update(function (userId, doc,
+      fieldNames, modifier) {
+      var decryptedDoc = self.collection.findOne({
+        _id: doc._id
+      });
+      modifier = self.startDocUpdate(userId,
+        decryptedDoc, fieldNames, modifier);
     });
 
-    self.collection.after.update(function(userId, doc) {
+    self.collection.after.update(function (userId, doc) {
       self.finishDocEncryption(doc);
     });
   },
@@ -96,15 +102,19 @@ _.extend(CollectionEncryption.prototype, {
    * listen to remove operations on the given collection in order to remove
    * the corresponding principal
    */
-  _listenToRemove: function() {
+  _listenToRemove: function () {
     var self = this;
 
-    self.collection.after.remove(function(userId, doc) {
+    self.collection.after.remove(function (userId, doc) {
       // find the corresponding principal
-      var principal = Principals.findOne({dataId: doc._id});
+      var principal = Principals.findOne({
+        dataId: doc._id
+      });
       // if there is a principal then remove it
       if (principal) {
-        Principals.remove({_id: principal._id});
+        Principals.remove({
+          _id: principal._id
+        });
       }
     });
   },
@@ -115,13 +125,13 @@ _.extend(CollectionEncryption.prototype, {
    * @param userId
    * @param doc - the doc that should be encrypted
    */
-  startDocEncryption: function(userId, doc) {
+  startDocEncryption: function (userId, doc) {
     var self = this;
 
     doc.encrypted = false;
     // incase of a collection update we have a _id here which is not
     // in the schema
-    if(doc.hasOwnProperty('_id')){
+    if (doc.hasOwnProperty('_id')) {
       delete doc._id;
     }
     // check if doc matches the schema
@@ -133,7 +143,9 @@ _.extend(CollectionEncryption.prototype, {
     EncryptionUtils.docToUpdate = _.clone(doc);
     // unset fields that will be encrypted
     _.each(self.fields, function (field) {
-      doc[field] = '--';
+      if (doc.hasOwnProperty('field')) {
+        doc[field] = '--';
+      }
     });
 
     // unload warning while generating keys
@@ -149,14 +161,14 @@ _.extend(CollectionEncryption.prototype, {
    * @param userId
    * @param doc - the doc that should be encrypted
    */
-  startDocUpdate: function(userId, doc, fieldNames, modifier) {
+  startDocUpdate: function (userId, doc, fieldNames, modifier) {
     var self = this;
     var needsEncryption = false;
     modifier.$set = modifier.$set || {};
 
     // check if a field that should be encrypted was edited
     _.each(self.fields, function (field) {
-      if(modifier.$set.hasOwnProperty(field)){
+      if (modifier.$set.hasOwnProperty(field)) {
         // store the modified state for later encryption
         doc[field] = modifier.$set[field];
         // remove the UNencrypted information before storing into the db
@@ -164,10 +176,10 @@ _.extend(CollectionEncryption.prototype, {
         needsEncryption = true;
       }
     });
-    
-    if(!needsEncryption){
+
+    if (!needsEncryption) {
       return modifier;
-    }else{
+    } else {
       modifier.$set.encrypted = false;
     }
     // tell the encryption package what data needs to encrypted next
@@ -185,21 +197,24 @@ _.extend(CollectionEncryption.prototype, {
    * called after insert and update
    * @param doc - the doc that should be encrypted
    */
-  finishDocEncryption: function(doc) {
+  finishDocEncryption: function (doc) {
     var self = this;
 
-    if(!doc._id || !EncryptionUtils.docToUpdate) {
+    if (!doc._id || !EncryptionUtils.docToUpdate) {
       return;
     }
     self.generateKey(function (privateKey, publicKey) {
-      if(_.isFunction(self.onKeyGenerated)){
-        self.onKeyGenerated(privateKey, publicKey, EncryptionUtils.docToUpdate);
+      if (_.isFunction(self.onKeyGenerated)) {
+        self.onKeyGenerated(privateKey, publicKey,
+          EncryptionUtils.docToUpdate);
       }
       // store keypair
-      EncryptionUtils.setKeypair(privateKey, publicKey);
+      EncryptionUtils.setKeypair(privateKey,
+        publicKey);
       // get encrypted doc
       var encryptedDoc = EncryptionUtils.encryptDocWithId(
-        doc._id, self.fields, self.principalName, self.asyncCrypto);
+        doc._id, self.fields, self.principalName,
+        self.asyncCrypto);
 
       encryptedDoc.encrypted = true;
 
@@ -236,6 +251,7 @@ _.extend(CollectionEncryption.prototype, {
    */
   shareDocWithUser: function (docId, userId) {
     var self = this;
-    EncryptionUtils.shareDocWithUser(docId, self.principalName, userId);
+    EncryptionUtils.shareDocWithUser(docId, self.principalName,
+      userId);
   }
 });

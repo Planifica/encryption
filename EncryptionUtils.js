@@ -101,8 +101,10 @@ EncryptionUtils = {
     }
     // decrypt each given field
     _.each(fields, function (field) {
-      doc[field] = self.decryptWithKey(doc[field],
-        decryptedPrincipalPrivateKey, asyncCrypto);
+      if (doc.hasOwnProperty(field)) {
+        doc[field] = self.decryptWithKey(doc[field],
+          decryptedPrincipalPrivateKey, asyncCrypto);
+      }
     });
     return doc;
   },
