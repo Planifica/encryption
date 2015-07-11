@@ -136,7 +136,7 @@ _.extend(CollectionEncryption.prototype, {
     }
     // check if doc matches the schema
     if (!Match.test(doc, self.schema)) {
-      console.log(check(doc, self.schema));
+      // console.log(check(doc, self.schema));
       return doc;
     }
     // tell the encryption package what data needs to encrypted next
