@@ -18,7 +18,7 @@ Then you need to generate RSA Keypairs for every user. Optimally you do this onc
       // callback once keypair is generated finished
     });
     
-Additionaly once a user logs in, you need to tell the package to decrypt the users private key and make it available for en-/decrypting data. Again you need the raw password of the user in order do encrypt the private key.
+Additionaly once a user logs in, you need to tell the package to decrypt the users private key and make it available for en-/decrypting data. Again you need the raw password of the user in order to encrypt the private key.
 
     EncryptionUtils.onSignIn(password);
     
