@@ -7,6 +7,7 @@ This package supports:
 * Automatically generating a RSA keypair for every user
 * Declaring which fields of which collection you want to have encrypted
 * Sharing encrypted information with other users
+
 ## Getting Started
 First install the package:
 ```
