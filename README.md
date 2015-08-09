@@ -54,7 +54,7 @@ The CollectionEncryption constructor takes the following parameters:
 * Collection
 * Name to identify a encrypted object
 * Array of fields that you want to encrypt
-* Schema for your field ([SimpleSchema](https://github.com/aldeed/meteor-simple-schema))
+* Schema for your collection ([SimpleSchema](https://github.com/aldeed/meteor-simple-schema))
 * Boolean that indicates wether to use Async encryption for encrypting messages or not (async is slow!)
 
 ## How secure is it?
