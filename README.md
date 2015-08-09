@@ -61,5 +61,5 @@ The CollectionEncryption constructor takes the following parameters:
 Like every other System, what it comes down to is the password of the user. If the user's password is not secure, his data also is not.
 For every asynchronous encryption we use [RSA](http://www-cs-students.stanford.edu/~tjw/jsbn/) with 2048 bit keys (creating the private and public keys of the user) and for all synchronous keys we use [AES-256](https://code.google.com/p/crypto-js/#AES) (encrypting the actual data).
 ## What is the goal of this package?
-The goal of this package is to create a scenario, where you (as a developer/product owner) can be sure that you have no access the the users data, which you can also assure to your users.  
+The goal of this package is to create a scenario, where you (as a developer/product owner) can be sure that you have no access to the users data, which you can also assure to your users.  
 Also there is no way of hacking one key (e.g. your server's or database's password) to all the data in the system.
