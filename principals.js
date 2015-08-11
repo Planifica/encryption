@@ -34,10 +34,12 @@ Principals.before.insert(function(userId, doc){
   return doc;
 });
 
-Meteor.users.attachSchema({
-  // gets encrypted with the users password
-  'profile.privateKey': {
-    type: String,
-    optional: true
-  }
-});
+if (Meteor.users.simpleSchema()) {
+  Meteor.users.attachSchema({
+    // gets encrypted with the users password
+    'profile.privateKey': {
+      type: String,
+      optional: true
+    }
+  });
+}

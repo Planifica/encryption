@@ -14,9 +14,10 @@ Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
 
   api.use(['underscore', 'planifica:node-rsa', 'jparker:crypto-aes'], 'client');
-  api.use('u2622:persistent-session@0.3.5', 'client');
+  api.use('u2622:persistent-session@0.4.1', 'client');
   api.use('aldeed:simple-schema');
   api.use('ongoworks:security');
+  api.use('matb33:collection-hooks@0.7.13');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
 
   // rsa
