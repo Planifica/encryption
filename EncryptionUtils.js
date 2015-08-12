@@ -244,7 +244,9 @@ EncryptionUtils = {
         publicKey: key.publicPEM()
       });
 
-      callback();
+      if(callback){
+        callback();
+      }
     });
 
   },
@@ -255,7 +257,16 @@ EncryptionUtils = {
   onSignIn: function(password) {
     var self = this;
     var user = Meteor.user();
-    var privateKey = self._decryptWithAesKey(user.profile.privateKey, password);
-    Session.setAuth('privateKey', privateKey);
+    if(user.emails[0].verified !== true) {
+      return;
+    }
+    // check if user already has a keypair
+    if(user.profile.privateKey){
+      var privateKey = self._decryptWithAesKey(user.profile.privateKey, password);
+      Session.setAuth('privateKey', privateKey);
+    } else {
+      // if not it is probably his first login -> generate keypair
+      self.extendProfile(password);
+    }
   }
 };
