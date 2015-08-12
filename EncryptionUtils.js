@@ -229,12 +229,13 @@ EncryptionUtils = {
     var userId = Meteor.userId();
     // generate keypair
     var key = new RSAKey();
-    // generate a 1024 bit key async
-    key.generateAsync(1024, "03", function () {
+    // generate a 2048 bit key async
+    key.generateAsync(2048, "03", function () {
+      var unencryptedPrivateKey = key.privatePEM();
       // store the raw private key in the session
-      Session.setAuth('privateKey', key.privatePEM());
+      Session.setAuth('privateKey', unencryptedPrivateKey);
       // encrypt the user's private key
-      var privateKey = self._encryptWithAesKey(key.privatePEM(), password);
+      var privateKey = self._encryptWithAesKey(unencryptedPrivateKey, password);
 
       Meteor.call('storeEncryptedPrivateKey', privateKey);
       // add a principal for the user
