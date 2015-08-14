@@ -1,4 +1,4 @@
-this.Principals = new Meteor.Collection("principals");
+Principals = new Meteor.Collection("principals");
 
 var Schema = {};
 Schema.Principal = new SimpleSchema({
