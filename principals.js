@@ -15,6 +15,8 @@ Schema.Principal = new SimpleSchema({
     type: String,
     optional: true
   },
+  // this is used for sharing data
+  // TODO find better name than encryptedPrivateKeys
   encryptedPrivateKeys: {
     type: [Object],
     optional: true

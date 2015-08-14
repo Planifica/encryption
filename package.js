@@ -43,6 +43,7 @@ Package.onUse(function(api) {
 
   api.export('CollectionEncryption');
   api.export('EncryptionUtils');
+  api.export('RSAKey');
 });
 
 Package.onTest(function(api) {
