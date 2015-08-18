@@ -59,6 +59,7 @@ EncryptionUtils = {
         // get the principal of the user
         var userPrincipal = self.getPrincipal('user', user._id);
         if (!userPrincipal) {
+            console.warn('no user principal found');
             return;
         }
         // delete existing principal
@@ -301,10 +302,12 @@ EncryptionUtils = {
         }
         // check if user already has a keypair
         if (user.profile && user.profile.privateKey) {
+            console.info('private key found -> decrypting it now');
             var privateKey = self._decryptWithAesKey(user.profile.privateKey,
                 password);
             Session.setAuth('privateKey', privateKey);
         } else {
+            console.info('no private key found -> generating one now');
             // if not it is probably his first login -> generate keypair
             self.extendProfile(password);
         }
