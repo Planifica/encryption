@@ -40,6 +40,12 @@ _.extend(CollectionEncryption.prototype, {
    * @param document
    */
   onKeyGenerated: function ( /* privateKey, publicKey, document */ ) {},
+  /*
+   * gets called once a document is inserted and encrypted
+   * should be defiend by the user
+   * @param document - the encrypted document
+   */
+  finishedInsertWithEncryption: function ( /* document */ ) {},
   /**
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
@@ -225,6 +231,9 @@ _.extend(CollectionEncryption.prototype, {
       }, {
         $set: encryptedDoc
       });
+      if (_.isFunction(self.finishedInsertWithEncryption)) {
+        self.finishedInsertWithEncryption(doc);
+      }
       // unbind unload warning
       $(window).unbind('beforeunload');
       EncryptionUtils.docToUpdate = null;
