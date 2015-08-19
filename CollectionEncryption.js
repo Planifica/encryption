@@ -53,20 +53,26 @@ _.extend(CollectionEncryption.prototype, {
   _listenToFinds: function () {
     var self = this;
 
-    self.collection.after.findOne(function (userId, selector,
-      options,
-      doc) {
+    self.collection.after.find(function (userId, selector, options, cursor) {
       if (!Meteor.user()) {
         return;
       }
-      if (!doc) {
-        return;
-      }
-      if (!doc.encrypted) {
-        return;
-      }
-      EncryptionUtils.decryptDoc(doc, self.fields,
-        self.principalName, self.asyncCrypto);
+      cursor.forEach(function(doc){
+        if (!doc) {
+          return;
+        }
+        if (!doc.encrypted) {
+          return;
+        }
+        EncryptionUtils.decryptDoc(doc, self.fields,
+          self.principalName, self.asyncCrypto);
+
+          // update the document in the client side minimongo
+          var copyDoc = _.omit(doc, '_id');
+          self.collection._collection.update({_id: doc._id}, {
+            $set: copyDoc
+          });
+      });
     });
   },
   /**

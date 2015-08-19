@@ -134,6 +134,9 @@ EncryptionUtils = {
                     asyncCrypto);
             }
         });
+        // set encrypted to false for better ui state handling
+        doc.encrypted = false;
+
         return doc;
     },
     /**
@@ -170,7 +173,8 @@ EncryptionUtils = {
     // decrypts the given message with a key
     _decryptWithRsaKey: function (message, key) {
         var postKey = new RSA(key);
-        return postKey.decrypt(message, 'utf8');
+        var result = postKey.decrypt(message, 'utf8');
+        return result;
     },
     _decryptWithAesKey: function (message, key) {
         var decryptedMessage = CryptoJS.AES.decrypt(message, key);
