@@ -28,8 +28,25 @@ Principals.permit(['update', 'remove'])
     .ifCurrentUserIsOwner()
     .apply();
 
-Meteor.publish("principals", function() {
-	return Principals.find({
-    ownerId: this.userId
-  });
+Meteor.publish("principals", function (partnerId) {
+    if (partnerId) {
+        // subscribe to all own principals and the user principal of the partner
+        return Principals.find({
+            $or: [{
+                dataId: partnerId
+            }, {
+                ownerId: this.userId
+            }, {
+                'encryptedPrivateKeys.userId': this.userId
+            }]
+        });
+    }
+    // subscribe to all own principals
+    return Principals.find({
+        $or: [{
+            ownerId: this.userId
+        }, {
+            'encryptedPrivateKeys.userId': this.userId
+        }]
+    });
 });
