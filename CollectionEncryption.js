@@ -2,6 +2,23 @@
 /* global EncryptionUtils:true */
 /* global RSAKey:true */
 
+var CONFIG_PAT = {
+  /**
+   * gets called once a key is generated
+   * should be defiend by the user
+   * @param privateKey
+   * @param publicKey
+   * @param document
+   */
+  onKeyGenerated: Match.Optional(Function),
+  /**
+   * gets called once a document is inserted and encrypted
+   * should be defiend by the user
+   * @param document - the encrypted document
+   */
+  onFinishedDocEncryption: Match.Optional(Function)
+};
+
 /**
  * register a collection to encrypt/decrypt automtically
  * @param collection - the collection instance
@@ -9,16 +26,24 @@
  * @param schema - the schema used for the collection
  * @param asyncCrypto: Boolean - wether to use RSA(true) or AES(false)
  */
-CollectionEncryption = function (collection, name, fields, schema, asyncCrypto) {
+CollectionEncryption = function (collection, fields, config) {
   var self = this;
-  self.asyncCrypto = asyncCrypto !== false;
+
+  // check if the config is valid
+  check(config, CONFIG_PAT);
+  // store the config that was provided
+  self.config = _.omit(config);
   // create a new instance of the mongo collection
   self.collection = collection;
 
   // store the properties
   self.fields = fields;
-  self.schema = schema;
-  self.principalName = name + 'Principal';
+  // check if simple schema is being used
+  if(_.isFunction(collection.simpleSchema)){
+    self.schema = collection.simpleSchema();
+  }
+  // build up the name of the principal using the collection name
+  self.principalName = collection._name + 'Principal';
 
   // listen to findOne events from the database
   self._listenToFinds();
@@ -32,20 +57,6 @@ CollectionEncryption = function (collection, name, fields, schema, asyncCrypto) 
 
 _.extend(CollectionEncryption.prototype, {
 
-  /*
-   * gets called once a key is generated
-   * should be defiend by the user
-   * @param privateKey
-   * @param publicKey
-   * @param document
-   */
-  onKeyGenerated: function ( /* privateKey, publicKey, document */ ) {},
-  /*
-   * gets called once a document is inserted and encrypted
-   * should be defiend by the user
-   * @param document - the encrypted document
-   */
-  finishedInsertWithEncryption: function ( /* document */ ) {},
   /**
    * listen to findOne operations on the given collection in order to decrypt
    * automtically
@@ -53,25 +64,29 @@ _.extend(CollectionEncryption.prototype, {
   _listenToFinds: function () {
     var self = this;
 
+    // listen to find events
     self.collection.after.find(function (userId, selector, options, cursor) {
       if (!Meteor.user()) {
         return;
       }
+      // iterate over the cursor
       cursor.forEach(function(doc){
         if (!doc) {
           return;
         }
+        // if the doc already is encrypted, don't do anything
         if (!doc.encrypted) {
           return;
         }
-        EncryptionUtils.decryptDoc(doc, self.fields,
-          self.principalName, self.asyncCrypto);
+        // otherwise encrypt the document
+        doc = EncryptionUtils.decryptDoc(doc, self.fields,
+          self.principalName);
 
-          // update the document in the client side minimongo
-          var copyDoc = _.omit(doc, '_id');
-          self.collection._collection.update({_id: doc._id}, {
-            $set: copyDoc
-          });
+        // update the document in the client side minimongo
+        var copyDoc = _.omit(doc, '_id');
+        self.collection._collection.update({_id: doc._id}, {
+          $set: copyDoc
+        });
       });
     });
   },
@@ -82,16 +97,20 @@ _.extend(CollectionEncryption.prototype, {
   _listenToInserts: function () {
     var self = this;
 
+    // listen to the before insert, since we need to
+    // set some properties on the document before inserting
+    // like unsetting the fields that shall be encrypted
     self.collection.before.insert(function (userId, doc) {
       self.startDocEncryption(userId, doc);
     });
 
+    // listen to after insert, so we can encrypt the document async
     self.collection.after.insert(function (userId, doc) {
       self.finishDocEncryption(doc);
     });
   },
   /**
-   * listen to update operations on the given collection in order to encrypt
+   * listen to update operations on the given collection in order to (re)encrypt
    * automtically
    */
   _listenToUpdates: function () {
@@ -99,14 +118,14 @@ _.extend(CollectionEncryption.prototype, {
 
     self.collection.before.update(function (userId, doc,
       fieldNames, modifier) {
-      var decryptedDoc = self.collection.findOne({
-        _id: doc._id
-      });
+      // change the modifier, so that the fields that shall be encrypted
+      // do not get stored in the db unencrypted
       modifier = self.startDocUpdate(userId,
-        decryptedDoc, fieldNames, modifier);
+        doc, fieldNames, modifier);
     });
 
     self.collection.after.update(function (userId, doc) {
+      // trigger the actual encryption
       self.finishDocEncryption(doc);
     });
   },
@@ -117,6 +136,7 @@ _.extend(CollectionEncryption.prototype, {
   _listenToRemove: function () {
     var self = this;
 
+    // once a document gets removed we also remove the corresponding principal
     self.collection.after.remove(function (userId, doc) {
       // find the corresponding principal
       var principal = Principals.findOne({
@@ -141,14 +161,15 @@ _.extend(CollectionEncryption.prototype, {
     var self = this;
 
     doc.encrypted = false;
-    // incase of a collection update we have a _id here which is not
-    // in the schema
+    // in case of a collection update we have a _id here which is not
+    // in the (potential) schema
     if (doc.hasOwnProperty('_id')) {
       delete doc._id;
     }
     // check if doc matches the schema
-    if (!Match.test(doc, self.schema)) {
-      // console.log(check(doc, self.schema));
+    if (self.schema && !Match.test(doc, self.schema)) {
+      // if the document does not match the schema we stop before encrypting
+      // since collection2 will deny the db insert anyway
       return doc;
     }
     // tell the encryption package what data needs to encrypted next
@@ -156,6 +177,9 @@ _.extend(CollectionEncryption.prototype, {
     // unset fields that will be encrypted
     _.each(self.fields, function (field) {
       if (doc.hasOwnProperty('field')) {
+        // for now we use -- to indicate that this field is still to be encrypted
+        // however this should never be visible in the UI since doc.encrypted
+        // can be used to wait for the fully decrypted document
         doc[field] = '--';
       }
     });
@@ -164,6 +188,7 @@ _.extend(CollectionEncryption.prototype, {
     $(window).bind('beforeunload', function () {
       return 'Encryption will fail if you leave now!';
     });
+
     return doc;
   },
   /**
@@ -172,11 +197,17 @@ _.extend(CollectionEncryption.prototype, {
    * gets called before update
    * @param userId
    * @param doc - the doc that should be encrypted
+   * @param fieldNames - the names of the fields that got modified
+   * @param modifier - the actual mongo modifier we need to adapt
    */
   startDocUpdate: function (userId, doc, fieldNames, modifier) {
     var self = this;
     var needsEncryption = false;
     modifier.$set = modifier.$set || {};
+
+    // first we need to decrypt the document
+    doc = EncryptionUtils.decryptDoc(doc, self.fields,
+      self.principalName);
 
     // check if a field that should be encrypted was edited
     _.each(self.fields, function (field) {
@@ -189,13 +220,13 @@ _.extend(CollectionEncryption.prototype, {
       }
     });
 
+    // check if fields that need to be encrypted were modified
     if (!needsEncryption) {
+      // if so just return the modifier - we have no need to adapt it
       return modifier;
-    } else {
-      modifier.$set.encrypted = false;
     }
     // tell the encryption package what data needs to encrypted next
-    EncryptionUtils.docToUpdate = _.clone(doc);
+    self._storeDocToUpdate(doc);
     // unload warning while generating keys
     $(window).bind('beforeunload', function () {
       return 'Encryption will fail if you leave now!';
@@ -210,56 +241,43 @@ _.extend(CollectionEncryption.prototype, {
    * @param doc - the doc that should be encrypted
    */
   finishDocEncryption: function (doc) {
-    var self = this;
+    var self = this,
+        docToEncrypt = self._getDocToEncrypt();
 
-    if (!doc._id || !EncryptionUtils.docToUpdate) {
+    // check if there is something to encrypt
+    if (!doc._id || !docToEncrypt) {
       return;
     }
-    self.generateKey(function (privateKey, publicKey) {
-      if (_.isFunction(self.onKeyGenerated)) {
-        self.onKeyGenerated(privateKey, publicKey,
-          EncryptionUtils.docToUpdate);
-      }
-      // store keypair
-      EncryptionUtils.setKeypair(privateKey,
-        publicKey);
-      // get encrypted doc
-      var encryptedDoc = EncryptionUtils.encryptDocWithId(
-        doc._id, self.fields, self.principalName,
-        self.asyncCrypto);
+    // generate a random key for the document
+    var documentKey = EncryptionUtils.generateRandomKey();
 
-      encryptedDoc.encrypted = true;
-
-      // update doc with encrypted fields
-      // use direct in order to circumvent any defined hooks
-      self.collection.direct.update({
-        _id: doc._id
-      }, {
-        $set: encryptedDoc
-      });
-      if (_.isFunction(self.finishedInsertWithEncryption)) {
-        self.finishedInsertWithEncryption(doc);
-      }
-      // unbind unload warning
-      $(window).unbind('beforeunload');
-      EncryptionUtils.docToUpdate = null;
-    });
-  },
-  generateKey: function (callback) {
-    var self = this;
-    var key = null;
-    if (self.asyncCrypto === true) {
-      key = new RSAKey();
-      // generate a 1024 bit key async
-      key.generateAsync(1024, "03", function () {
-        callback(key.privatePEM(), key.publicPEM());
-      });
-    } else {
-      if (window.secureShared && window.secureShared.generatePassphrase) {
-        key = CryptoJS.lib.WordArray.random(16).toString();
-        callback(key);
-      }
+    // call the callback once the key is encrypted
+    if (self.config.onKeyGenerated) {
+      self.config.onKeyGenerated(documentKey, docToEncrypt);
     }
+    // restore the document with its _id as it was before the insert
+    docToEncrypt._id = doc._id;
+    // get encrypted doc
+    var encryptedDoc = EncryptionUtils.encryptDocWithId(
+      docToEncrypt, self.fields, self.principalName, documentKey);
+
+    // the document is encrypted now and may be shown in the UI
+    encryptedDoc.encrypted = true;
+
+    // update doc with encrypted fields
+    // use direct in order to circumvent any defined hooks
+    self.collection.direct.update({
+      _id: doc._id
+    }, {
+      $set: encryptedDoc
+    });
+    if (self.config.finishedInsertWithEncryption) {
+      self.config.finishedInsertWithEncryption(doc);
+    }
+    // unbind unload warning
+    $(window).unbind('beforeunload');
+    EncryptionUtils.docToUpdate = null;
+
   },
   /**
    * shares the doc with the given id with the user with the given id
@@ -268,5 +286,21 @@ _.extend(CollectionEncryption.prototype, {
     var self = this;
     EncryptionUtils.shareDocWithUser(docId, self.principalName,
       userId);
+  },
+  /**
+   * stores the docs that need to be encrypted
+   */
+  _storeDocToEncrypt: function (doc) {
+    var self = this;
+    self.docsToEncrypt.push(_.clone(doc));
+  },
+  /**
+   * return that oldest doc that was queued for encryption
+   * TODO this might be harmful when inserting multiple documents at once
+   * since they might get misordered
+   */
+  _getDocToEncrypt: function () {
+    var self = this;
+    self.docsToEncrypt.pop();
   }
 });
