@@ -258,6 +258,52 @@ EncryptionUtils = {
         });
     },
     /**
+     * unshares the given doc with the given user
+     * by removing the given user's id and corresponding (encrypted) document-key from the documents principal
+     */
+    unshareDocWithUser: function (docId, docType, userId) {
+        var self = this;
+
+        // fint principal of post
+        var principal = self.getPrincipal(docType, docId);
+        if (!principal) {
+            console.warn('no principal found for ' + docType +
+                ' with id: ' +
+                docId);
+            return;
+        }
+
+        Principals.update({
+            _id: principal._id
+        }, {
+            $pull: {
+                encryptedPrivateKeys: {
+                    userId: userId
+                }
+            }
+        });
+    },
+    /**
+     * checks if the given document is shared with the given user via the principal
+     */
+    checkIfDocIsSharedWithUser: function (docId, docType, userId) {
+        // find principle
+        var principal = Principals.findOne({
+            dataType: docType,
+            dataId: docId,
+            'encryptedPrivateKeys.userId': userId
+        });
+        // check if there is a principle
+        if (!principal) {
+            console.warn('no principal found for ' + docType +
+                ' with id: ' +
+                docId);
+            return;
+        }
+        return principal;
+
+    },
+    /**
      * extends the current user's profile with his (encrypted) privateKey
      * this key gets encrypted with his password via AES
      */
@@ -299,7 +345,7 @@ EncryptionUtils = {
         if (self.options.enforceEmailVerification === true && user.emails[
                 0].verified !== true) {
             console.warn(
-                'The users email is not verified and since '+
+                'The users email is not verified and since ' +
                 'enforceEmailVerification is enabled the encryption will not continue'
             );
             return;
