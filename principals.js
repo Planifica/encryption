@@ -12,18 +12,22 @@ Schema.Principal = new SimpleSchema({
     type: String
   },
   publicKey: {
-    type: String,
+    type: Uint8Array,
     optional: true
   },
   privateKey: {
-    type: String,
+    type: Uint8Array,
     optional: true
   },
   /**
    * the nonce that is used for the symmetric encryption of the document
    */
   symNonce: {
-    type: String,
+    type: Uint8Array,
+    optional: true
+  },
+  addedPasswordBytes: {
+    type: Uint8Array,
     optional: true
   },
   encryptedPrivateKeys: {
@@ -34,13 +38,13 @@ Schema.Principal = new SimpleSchema({
     type: String
   },
   'encryptedPrivateKeys.$.key': {
-    type: String
+    type: Uint8Array
   },
   /**
    * the nonces that are used for the asymmetric encryption of the document key
    */
   'encryptedPrivateKeys.$.asymNonce': {
-    type: String
+    type: Uint8Array
   }
 });
 
@@ -55,7 +59,7 @@ if (Meteor.users.simpleSchema()) {
   Meteor.users.attachSchema({
     // gets encrypted with the users password
     'profile.privateKey': {
-      type: String,
+      type: Object,
       optional: true
     }
   });

@@ -56,16 +56,16 @@ EncryptionUtils = {
     });
     // collect users that currently have access to the document
     var shareWithUsers = [],
-      nonce,
+      asymNonce,
       keyPairForDocumentKey;
 
     if (existingPrincipal) {
-      nonce = existingPrincipal.nonce;
+      asymNonce = existingPrincipal.asymNonce;
 
       //get existing keyPair from existing principle
       keyPairForDocumentKey = {
-        secretKey: nacl.util.decodeBase64(existingPrincipal.secretKey),
-        publicKey: nacl.util.decodeBase64(existingPrincipal.publicKey)
+        secretKey: existingPrincipal.secretKey,
+        publicKey: existingPrincipal.publicKey
       };
 
       // find all users that had access to the encrypted data
@@ -82,13 +82,13 @@ EncryptionUtils = {
         _id: existingPrincipal._id
       });
     } else {
-      //generate new 24Byte nonce
-      nonce = self.generate24ByteNonce();
+      //generate new 24Byte asymNonce
+      asymNonce = self.generate24ByteNonce();
       keyPairForDocumentKey = nacl.box.keyPair();
     }
 
     // encrypt the document key with the users public key -- needs to be RSA
-    var encryptedDocumentKey = self.asymEncryptWithKey(documentKey, nonce,
+    var encryptedDocumentKey = self.asymEncryptWithKey(documentKey, asymNonce,
       userPrincipal.publicKey, keyPairForDocumentKey.secretKey);
 
     // create the principle in the database
@@ -98,7 +98,7 @@ EncryptionUtils = {
       encryptedPrivateKeys: [{
         userId: user._id,
         key: encryptedDocumentKey,
-        asymNonce: nonce
+        asymNonce: asymNonce
       }],
       publicKey: keyPairForDocumentKey.publicKey,
       secretKey: keyPairForDocumentKey.secretKey,
@@ -208,15 +208,14 @@ EncryptionUtils = {
       searchObj = {
         userId: user._id
       },
-      privateKey = Session.get('privateKey'),
+      privateKey = nacl.util.decodeBase64(Session.get('privateKey')),
       encryptedKeys = _.where(principal.encryptedPrivateKeys,
         searchObj);
 
     if (!encryptedKeys.length) {
       return;
     }
-    var publicKeyForDocumentKey = nacl.util.decodeBase64(encryptedKeys[0].publicKey);
-    privateKey = nacl.util.decodeBase64(privateKey);
+    var publicKeyForDocumentKey = encryptedKeys[0].publicKey;
     // return decrypted key
     return self.asymDecryptWithKey(encryptedKeys[0].key,
       encryptedKeys[0].asymNonce, publicKeyForDocumentKey, privateKey);
@@ -348,23 +347,23 @@ EncryptionUtils = {
     // generate keypair
     var keyPair = nacl.box.keyPair();
 
-
     // encrypt the user's private key
     var nonce = self.generate24ByteNonce();
     password = self.generate32ByteKeyFromPassword(password);
 
     var privateKey = self.symEncryptWithKey(
-      keyPair.secretKey, nonce, password);
+      keyPair.secretKey,
+      nonce,
+      password.byteArray
+    );
 
-    //convert uInt8Array to String
-    keyPair.secretKey = window.secureShared.uInt8Array2str(keyPair.secretKey);
-    keyPair.publicKey = window.secureShared.uInt8Array2str(keyPair.publicKey);
+    // store the raw private key in the session as base64 string
+    Session.setAuth('privateKey', nacl.util.encodeBase64(keyPair.secretKey));
 
-    // store the raw private key in the session
-    Session.setAuth('privateKey', keyPair.secretKey);
-
+    console.log('store encrypted private key', privateKey);
     // use meteor call since the client might/should not be allowd
     // to update the user document client-side
+    // store the private key as uInt8Array
     Meteor.call('storeEncryptedPrivateKey', privateKey);
 
     console.log("now insert principle");
@@ -372,8 +371,11 @@ EncryptionUtils = {
     Principals.insert({
       dataType: 'user',
       dataId: userId,
+      addedPasswordBytes: password.randomBytes,
+      // store the public key as uInt8Array
       publicKey: keyPair.publicKey,
-      symNonce: window.secureShared.uInt8Array2str(nonce)
+      // store the nonce key as uInt8Array
+      symNonce: nonce
     });
   },
   /**
@@ -396,19 +398,29 @@ EncryptionUtils = {
     if (user.profile && user.profile.privateKey) {
       console.info('private key found -> decrypting it now');
       Meteor.subscribe('principals', function () {
-        var principle = self.getPrincipal('user', user._id);
+        var principal = self.getPrincipal('user', user._id);
 
-        if (!principle) {
+        if (!principal) {
           console.warn('no user principal found');
           return;
         }
 
+        password = self.generate32ByteKeyFromPassword(password, principal.addedPasswordBytes);
+        console.log(
+          user.profile.privateKey,
+          principal.symNonce,
+          password.byteArray
+        );
         // decrypt private key of the user using his password and nonce
-        var privateKey = self.symDecryptWithKey(nacl.util.decodeBase64(user.profile.privateKey),
-          principle.nonce, password);
+        var privateKey = self.symDecryptWithKey(
+          user.profile.privateKey,
+          principal.symNonce,
+          password.byteArray
+        );
+        console.log(privateKey);
 
         Session.setAuth('privateKey', privateKey);
-      })
+      });
     } else {
       console.info('no private key found -> generating one now');
       // if not it is probably his first login -> generate keypair
@@ -427,18 +439,26 @@ EncryptionUtils = {
    * generate 32Byte Key from password
    * @param String
    */
-  generate32ByteKeyFromPassword: function(password) {
+  generate32ByteKeyFromPassword: function(password, randomBytes) {
     var self = this,
         byteArray = nacl.util.decodeUTF8(password);
 
     if (byteArray.length < 32) {
-      var randomBytes = nacl.randomBytes(32 - byteArray.length);
+      // if there are no randomBytes provided -> generate some
+      if(!randomBytes) {
+        randomBytes = nacl.randomBytes(32 - byteArray.length);
+      }
+      // store the random bytes so we can use them again when we want to decrypt
       byteArray = self.appendBuffer(byteArray, randomBytes);
 
     } else {
       byteArray = byteArray.slice(0, 31);
     }
-    return byteArray;
+    // return the byte array and the added bytes
+    return {
+      byteArray: byteArray,
+      randomBytes: randomBytes
+    };
   },
 
   /**
