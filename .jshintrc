@@ -136,6 +136,7 @@
 
       // globals
       "Schema": false,
+      "nacl": false,
 
       // collections
       "Principals": false
