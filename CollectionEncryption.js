@@ -1,8 +1,7 @@
 /* global CollectionEncryption:true */
 /* global EncryptionUtils:true */
-/* global RSAKey:true */
 
-var CONFIG_PAT = {
+var CONFIG_PAT = Match.Optional({
   /**
    * gets called once a key is generated
    * should be defiend by the user
@@ -17,7 +16,7 @@ var CONFIG_PAT = {
    * @param document - the encrypted document
    */
   onFinishedDocEncryption: Match.Optional(Function)
-};
+});
 
 /**
  * register a collection to encrypt/decrypt automtically
@@ -31,8 +30,10 @@ CollectionEncryption = function (collection, fields, config) {
 
   // check if the config is valid
   check(config, CONFIG_PAT);
-  // store the config that was provided
-  self.config = _.omit(config);
+
+  var options = _.omit(config);
+  self.config = _.defaults(options, self.config);
+
   // create a new instance of the mongo collection
   self.collection = collection;
 
@@ -44,6 +45,7 @@ CollectionEncryption = function (collection, fields, config) {
   }
   // build up the name of the principal using the collection name
   self.principalName = collection._name + 'Principal';
+  self.docsToEncrypt = [];
 
   // listen to findOne events from the database
   self._listenToFinds();
@@ -71,24 +73,40 @@ _.extend(CollectionEncryption.prototype, {
       }
       // iterate over the cursor
       cursor.forEach(function(doc){
-        if (!doc) {
-          return;
-        }
-        // if the doc already is encrypted, don't do anything
-        if (!doc.encrypted) {
-          return;
-        }
-        // otherwise encrypt the document
-        doc = EncryptionUtils.decryptDoc(doc, self.fields,
-          self.principalName);
-
-        // update the document in the client side minimongo
-        var copyDoc = _.omit(doc, '_id');
-        self.collection._collection.update({_id: doc._id}, {
-          $set: copyDoc
-        });
+        self._decryptDoc(doc);
       });
     });
+    // listen to findOne events
+    self.collection.after.findOne(function (userId, selector, options, doc) {
+      if (!Meteor.user()) {
+        return;
+      }
+      doc = self._decryptDoc(doc);
+    });
+  },
+  /**
+   * decrypts the given doc and stores it into minimongo
+   * @param doc
+   */
+  _decryptDoc: function (doc) {
+    var self = this;
+    if (!doc) {
+      return;
+    }
+    // if the doc already is encrypted, don't do anything
+    if (!doc.encrypted) {
+      return;
+    }
+    // otherwise encrypt the document
+    doc = EncryptionUtils.decryptDoc(doc, self.fields,
+      self.principalName);
+
+    // update the document in the client side minimongo
+    var copyDoc = _.omit(doc, '_id');
+    self.collection._collection.update({_id: doc._id}, {
+      $set: copyDoc
+    });
+    return doc;
   },
   /**
    * listen to insert operations on the given collection in order to encrypt
@@ -173,7 +191,7 @@ _.extend(CollectionEncryption.prototype, {
       return doc;
     }
     // tell the encryption package what data needs to encrypted next
-    EncryptionUtils.docToUpdate = _.clone(doc);
+    self._storeDocToEncrypt(doc);
     // unset fields that will be encrypted
     _.each(self.fields, function (field) {
       if (doc.hasOwnProperty('field')) {
@@ -226,7 +244,7 @@ _.extend(CollectionEncryption.prototype, {
       return modifier;
     }
     // tell the encryption package what data needs to encrypted next
-    self._storeDocToUpdate(doc);
+    self._storeDocToEncrypt(doc);
     // unload warning while generating keys
     $(window).bind('beforeunload', function () {
       return 'Encryption will fail if you leave now!';
@@ -301,6 +319,6 @@ _.extend(CollectionEncryption.prototype, {
    */
   _getDocToEncrypt: function () {
     var self = this;
-    self.docsToEncrypt.pop();
+    return self.docsToEncrypt.pop();
   }
 });
