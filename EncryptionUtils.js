@@ -353,8 +353,6 @@ EncryptionUtils = {
     var nonce = self.generate24ByteNonce();
     password = self.generate32ByteKeyFromPassword(password);
 
-
-
     var privateKey = self.symEncryptWithKey(
       keyPair.secretKey, nonce, password);
 
@@ -384,7 +382,7 @@ EncryptionUtils = {
    */
   onSignIn: function(password) {
     var self = this,
-      user = Meteor.user();
+        user = Meteor.user();
 
     if (self.options.enforceEmailVerification === true && user.emails[
         0].verified !== true) {
@@ -397,18 +395,20 @@ EncryptionUtils = {
     // check if user already has a keypair
     if (user.profile && user.profile.privateKey) {
       console.info('private key found -> decrypting it now');
-      var principle = self.getPrincipal('user', user._id);
+      Meteor.subscribe('principals', function () {
+        var principle = self.getPrincipal('user', user._id);
 
-      if (!principle) {
-        console.warn('no user principal found');
-        return;
-      }
+        if (!principle) {
+          console.warn('no user principal found');
+          return;
+        }
 
-      // decrypt private key of the user using his password and nonce
-      var privateKey = self.symDecryptWithKey(nacl.util.decodeBase64(user.profile.privateKey),
-        principle.nonce, password);
+        // decrypt private key of the user using his password and nonce
+        var privateKey = self.symDecryptWithKey(nacl.util.decodeBase64(user.profile.privateKey),
+          principle.nonce, password);
 
-      Session.setAuth('privateKey', privateKey);
+        Session.setAuth('privateKey', privateKey);
+      })
     } else {
       console.info('no private key found -> generating one now');
       // if not it is probably his first login -> generate keypair
