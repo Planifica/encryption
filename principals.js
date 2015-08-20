@@ -22,10 +22,10 @@ Schema.Principal = new SimpleSchema({
   /**
    * the nonce that is used for the symmetric encryption of the document
    */
-  nonce: {
+  symNonce: {
     type: String,
     optional: true
-  }
+  },
   encryptedPrivateKeys: {
     type: [Object],
     optional: true
@@ -39,7 +39,7 @@ Schema.Principal = new SimpleSchema({
   /**
    * the nonces that are used for the asymmetric encryption of the document key
    */
-  'encryptedPrivateKeys.$.nonce': {
+  'encryptedPrivateKeys.$.asymNonce': {
     type: String
   }
 });
