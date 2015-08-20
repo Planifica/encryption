@@ -15,8 +15,17 @@ Schema.Principal = new SimpleSchema({
     type: String,
     optional: true
   },
-  // this is used for sharing data
-  // TODO find better name than encryptedPrivateKeys
+  privateKey: {
+    type: String,
+    optional: true
+  },
+  /**
+   * the nonce that is used for the symmetric encryption of the document
+   */
+  nonce: {
+    type: String,
+    optional: true
+  }
   encryptedPrivateKeys: {
     type: [Object],
     optional: true
@@ -25,6 +34,12 @@ Schema.Principal = new SimpleSchema({
     type: String
   },
   'encryptedPrivateKeys.$.key': {
+    type: String
+  },
+  /**
+   * the nonces that are used for the asymmetric encryption of the document key
+   */
+  'encryptedPrivateKeys.$.nonce': {
     type: String
   }
 });
