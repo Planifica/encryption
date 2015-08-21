@@ -223,8 +223,7 @@ EncryptionUtils = {
             searchObj = {
                 userId: user._id
             },
-            privateKey = Session.get(
-                'privateKey'),
+            privateKey = Session.get('privateKey'),
             encryptedKeys = _.where(principal.encryptedPrivateKeys,
                 searchObj);
 
@@ -276,9 +275,8 @@ EncryptionUtils = {
             return;
         }
 
-        var userPublicKey = nacl.util.decodeBaes64(userPrincipal.publicKey);
-        var secretKeyForDocumentKey = nacl.util.decodeBaes64(
-            documentPrincipal.secretKey);
+        var userPublicKey = userPrincipal.publicKey;
+        var secretKeyForDocumentKey = documentPrincipal.privateKey;
         // get the decrypted key that was used to encrypt the document
         var documentKey = self.getDocumentKeyOfPrincipal(
             documentPrincipal);
@@ -376,7 +374,7 @@ EncryptionUtils = {
         );
 
         // store the raw private key in the session as base64 string
-        Session.setAuth('privateKey', nacl.util.encodeBase64(keyPair.secretKey));
+        Session.setAuth('privateKey', keyPair.secretKey);
 
         // use meteor call since the client might/should not be allowd
         // to update the user document client-side
