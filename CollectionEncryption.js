@@ -289,8 +289,8 @@ _.extend(CollectionEncryption.prototype, {
     }, {
       $set: encryptedDoc
     });
-    if (self.config.finishedInsertWithEncryption) {
-      self.config.finishedInsertWithEncryption(doc);
+    if (self.config.onFinishedDocEncryption) {
+      self.config.onFinishedDocEncryption(doc);
     }
     // unbind unload warning
     $(window).unbind('beforeunload');
