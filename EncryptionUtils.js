@@ -34,11 +34,33 @@ EncryptionUtils = {
             newDoc = {},
             symNonce = self.generate24ByteNonce();
 
+        // fetch a potential existing principal
+        // - this might be the case in an update
+        var existingPrincipal = Principals.findOne({
+            dataType: name,
+            dataId: doc._id
+        });
+
+        if (existingPrincipal) {
+            // if there is a principal get the "old" document key and use it
+            documentKey = self.getDocumentKeyOfPrincipal(existingPrincipal);
+            symNonce = existingPrincipal.symNonce;
+        }
         // encrypt the desired fields
         _.each(fields, function (field) {
             newDoc[field] = self.symEncryptWithKey(doc[field],
                 symNonce, documentKey);
         });
+        if (existingPrincipal) {
+            // if the doc was just updated then return
+            // since it already has a valid principal
+            // and is potentially shared with users
+            return newDoc;
+        }
+
+        //generate new 24Byte asymNonce
+        var asymNonce = self.generate24ByteNonce();
+        var keyPairForDocumentKey = nacl.box.keyPair();
 
         // get the principal of the user
         var userPrincipal = self.getPrincipal('user', user._id);
@@ -46,46 +68,6 @@ EncryptionUtils = {
             console.warn('no user principal found');
             return;
         }
-
-        // fetch a potential existing principal
-        // - this might be the case in an update
-        var existingPrincipal = Principals.findOne({
-            dataType: name,
-            dataId: doc._id
-        });
-        // collect users that currently have access to the document
-        var shareWithUsers = [],
-            asymNonce,
-            keyPairForDocumentKey;
-
-        if (existingPrincipal) {
-            asymNonce = existingPrincipal.asymNonce;
-
-            //get existing keyPair from existing principle
-            keyPairForDocumentKey = {
-                secretKey: existingPrincipal.secretKey,
-                publicKey: existingPrincipal.publicKey
-            };
-
-            // find all users that had access to the encrypted data
-            shareWithUsers = _.map(existingPrincipal.encryptedPrivateKeys,
-                function (obj) {
-                    return obj.userId;
-                });
-            // filter out the owner, so he does not get readded
-            shareWithUsers = _.filter(shareWithUsers, function (userId) {
-                return userId !== user._id;
-            });
-            // remove the old principal
-            Principals.remove({
-                _id: existingPrincipal._id
-            });
-        } else {
-            //generate new 24Byte asymNonce
-            asymNonce = self.generate24ByteNonce();
-            keyPairForDocumentKey = nacl.box.keyPair();
-        }
-
         // encrypt the document key with the users public key -- needs to be RSA
         var encryptedDocumentKey = self.asymEncryptWithKey(documentKey,
             asymNonce,
@@ -106,10 +88,6 @@ EncryptionUtils = {
             symNonce: symNonce
         });
 
-        // re-share the document
-        _.each(shareWithUsers, function (userId) {
-            self.shareDocWithUser(doc._id, name, userId);
-        });
         return newDoc;
     },
     /**
