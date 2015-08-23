@@ -18,6 +18,7 @@ Package.onUse(function(api) {
   api.use('aldeed:simple-schema');
   api.use('ongoworks:security');
   api.use('matb33:collection-hooks@0.7.13');
+  api.use('robertlowe:persistent-reactive-dict');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
 
   // rsa

@@ -133,6 +133,7 @@
       "Encryption": false,
       "SimpleSchema": false,
       "Security": false,
+      "PersistentReactiveDict": false,
 
       // globals
       "Schema": false,

@@ -4,6 +4,15 @@ var CONFIG_PAT = {
     enforceEmailVerification: Match.Optional(Boolean)
 };
 
+// private key
+// will be flushed once the user signs out
+var signedInSession = new PersistentReactiveDict('mySession');
+// method that retunrsn an Uint8Array of the private key
+var getPrivateKey = function () {
+  var privateKey = signedInSession.get('privateKey').privateKey;
+  return new Uint8Array(_.values(privateKey));
+};
+
 EncryptionUtils = {
     /**
      * standard options
@@ -12,6 +21,9 @@ EncryptionUtils = {
         enforceEmailVerification: true
     },
 
+    hasPrivateKey: function () {
+      return !_.isNull(getPrivateKey());
+    },
     /**
      * sets the options for all encryptions functions
      * @param options
@@ -201,7 +213,7 @@ EncryptionUtils = {
             searchObj = {
                 userId: user._id
             },
-            privateKey = Session.get('privateKey'),
+            privateKey = getPrivateKey(),
             encryptedKeys = _.where(principal.encryptedPrivateKeys,
                 searchObj);
 
@@ -352,7 +364,7 @@ EncryptionUtils = {
         );
 
         // store the raw private key in the session as base64 string
-        Session.setAuth('privateKey', keyPair.secretKey);
+        signedInSession.setAuth('privateKey', keyPair.secretKey);
 
         // use meteor call since the client might/should not be allowd
         // to update the user document client-side
@@ -406,7 +418,7 @@ EncryptionUtils = {
                     password.byteArray
                 );
 
-                Session.setAuth('privateKey', privateKey);
+                signedInSession.setAuth('privateKey', {privateKey: privateKey});
             });
         } else {
             console.info('no private key found -> generating one now');
