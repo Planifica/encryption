@@ -66,19 +66,6 @@ _.extend(CollectionEncryption.prototype, {
     _listenToFinds: function () {
         var self = this;
 
-        // listen to find events
-        // self.collection.after.find(function (userId, selector,
-        //     options, cursor) {
-        //       console.log('find');
-        //     if (!Meteor.user()) {
-        //         return;
-        //     }
-        //     // iterate over the cursor
-        //     cursor = cursor.map(function (doc) {
-        //         return self._decryptDoc(doc);
-        //     });
-        //     console.log(cursor.fetch());
-        // });
         // listen to findOne events
         self.collection.after.findOne(function (userId, selector,
             options, doc) {
@@ -105,13 +92,6 @@ _.extend(CollectionEncryption.prototype, {
         doc = EncryptionUtils.decryptDoc(doc, self.fields,
             self.principalName);
 
-        // // update the document in the client side minimongo
-        // var copyDoc = _.omit(doc, '_id');
-        // self.collection._collection.update({
-        //     _id: doc._id
-        // }, {
-        //     $set: copyDoc
-        // });
         return doc;
     },
     /**
@@ -292,20 +272,6 @@ _.extend(CollectionEncryption.prototype, {
             _id: doc._id
         }, {
             $set: encryptedDoc
-        }, function() {
-          // callback once the document was update on the server
-          // no we can safely update the doc in the minimongo, since it wont get
-          // overwritten by the server with the encrypted fields
-
-          // remove the _id again from the unencrypted document so we can store it
-          // in the minimongo
-          // docToEncrypt = _.omit(docToEncrypt, '_id');
-          // also update the client minimongo so there is no need to redecrypt
-          // self.collection._collection.update({
-          //     _id: doc._id
-          // }, {
-          //     $set: docToEncrypt
-          // });
         });
         if (self.config.onFinishedDocEncryption) {
             self.config.onFinishedDocEncryption(doc);

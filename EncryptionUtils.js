@@ -9,8 +9,11 @@ var CONFIG_PAT = {
 var signedInSession = new PersistentReactiveDict('mySession');
 // method that retunrsn an Uint8Array of the private key
 var getPrivateKey = function () {
-  var privateKey = signedInSession.get('privateKey').privateKey;
-  return new Uint8Array(_.values(privateKey));
+  var privateKeyObj = signedInSession.get('privateKey');
+  if (privateKeyObj) {
+    return new Uint8Array(_.values(privateKeyObj.privateKey));
+  }
+  return null;
 };
 
 EncryptionUtils = {
