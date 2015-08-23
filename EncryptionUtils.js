@@ -1,8 +1,19 @@
 /* global EncryptionUtils:true */
-/* global RSAKey:true */
 
 var CONFIG_PAT = {
     enforceEmailVerification: Match.Optional(Boolean)
+};
+
+// private key
+// will be flushed once the user signs out
+var signedInSession = new PersistentReactiveDict('mySession');
+// method that retunrsn an Uint8Array of the private key
+var getPrivateKey = function () {
+  var privateKeyObj = signedInSession.get('privateKey');
+  if (privateKeyObj) {
+    return new Uint8Array(_.values(privateKeyObj.privateKey));
+  }
+  return null;
 };
 
 EncryptionUtils = {
@@ -13,6 +24,9 @@ EncryptionUtils = {
         enforceEmailVerification: true
     },
 
+    hasPrivateKey: function () {
+      return !_.isNull(getPrivateKey());
+    },
     /**
      * sets the options for all encryptions functions
      * @param options
@@ -32,13 +46,36 @@ EncryptionUtils = {
         var self = this,
             // client only so this works :)
             user = Meteor.user(),
-            newDoc = {};
+            newDoc = {},
+            symNonce = self.generate24ByteNonce();
 
+        // fetch a potential existing principal
+        // - this might be the case in an update
+        var existingPrincipal = Principals.findOne({
+            dataType: name,
+            dataId: doc._id
+        });
+
+        if (existingPrincipal) {
+            // if there is a principal get the "old" document key and use it
+            documentKey = self.getDocumentKeyOfPrincipal(existingPrincipal);
+            symNonce = existingPrincipal.symNonce;
+        }
         // encrypt the desired fields
         _.each(fields, function (field) {
             newDoc[field] = self.symEncryptWithKey(doc[field],
-                documentKey);
+                symNonce, documentKey);
         });
+        if (existingPrincipal) {
+            // if the doc was just updated then return
+            // since it already has a valid principal
+            // and is potentially shared with users
+            return newDoc;
+        }
+
+        //generate new 24Byte asymNonce
+        var asymNonce = self.generate24ByteNonce();
+        var keyPairForDocumentKey = nacl.box.keyPair();
 
         // get the principal of the user
         var userPrincipal = self.getPrincipal('user', user._id);
@@ -46,32 +83,11 @@ EncryptionUtils = {
             console.warn('no user principal found');
             return;
         }
-        // fetch a potential existing principal
-        // - this might be the case in a update
-        var existingPrincipal = Principals.findOne({
-            dataType: name,
-            dataId: doc._id
-        });
-        // collect users that currently have access to the document
-        var shareWithUsers = [];
-        if (existingPrincipal) {
-            // find all users that had access to the encrypted data
-            shareWithUsers = _.map(existingPrincipal.encryptedPrivateKeys,
-                function (obj) {
-                    return obj.userId;
-                });
-            // filter out the owner, so he does not get readded
-            shareWithUsers = _.filter(shareWithUsers, function (userId) {
-                return userId !== user._id;
-            });
-            // remove the old principal
-            Principals.remove({
-                _id: existingPrincipal._id
-            });
-        }
         // encrypt the document key with the users public key -- needs to be RSA
         var encryptedDocumentKey = self.asymEncryptWithKey(documentKey,
-            userPrincipal.publicKey);
+            asymNonce,
+            userPrincipal.publicKey, keyPairForDocumentKey.secretKey
+        );
 
         // create the principle in the database
         Principals.insert({
@@ -79,14 +95,14 @@ EncryptionUtils = {
             dataId: doc._id,
             encryptedPrivateKeys: [{
                 userId: user._id,
-                key: encryptedDocumentKey
-            }]
+                key: encryptedDocumentKey,
+                asymNonce: asymNonce
+            }],
+            publicKey: keyPairForDocumentKey.publicKey,
+            privateKey: keyPairForDocumentKey.secretKey,
+            symNonce: symNonce
         });
 
-        // re-share the document
-        _.each(shareWithUsers, function (userId) {
-            self.shareDocWithUser(doc._id, name, userId);
-        });
         return newDoc;
     },
     /**
@@ -106,17 +122,18 @@ EncryptionUtils = {
             return doc;
         }
         // get decrypted private key of principal -- needs to be async
-        var decryptedPrincipalPrivateKey = self.getDocumentKeyOfPrincipal(
-            principal, true);
+        var decryptedDocumentKey = self.getDocumentKeyOfPrincipal(
+            principal);
         // return if something went wrong
-        if (!decryptedPrincipalPrivateKey) {
+        if (!decryptedDocumentKey) {
             return doc;
         }
         // decrypt each given field
         _.each(fields, function (field) {
             if (doc.hasOwnProperty(field)) {
                 doc[field] = self.symDecryptWithKey(doc[field],
-                    decryptedPrincipalPrivateKey);
+                    principal.symNonce,
+                    decryptedDocumentKey);
             }
         });
         // set encrypted to false for better ui state handling
@@ -129,36 +146,48 @@ EncryptionUtils = {
      * @param message - the message to be encrypted
      * @param key - the public key that is used to encrypt the message
      */
-    asymEncryptWithKey: function (message, key) {
-        var rsaKey = new RSA(key);
-        return rsaKey.encrypt(message, 'base64');
+    asymEncryptWithKey: function (message, nonce, publicKey, secretKey) {
+        return nacl.box(message, nonce, publicKey, secretKey);
     },
     /**
      * encrypts the given message symmetrically with the given  key
      * @param message - the message to be encrypted
      * @param key - key that is used to en-/decrypt the message
      */
-    symEncryptWithKey: function (message, key) {
-        var encryptedMessage = CryptoJS.AES.encrypt(message, key);
-        return encryptedMessage.toString();
+    symEncryptWithKey: function (message, nonce, key) {
+        var returnAsString = _.isString(message);
+        if (returnAsString) {
+            message = nacl.util.decodeUTF8(message);
+        }
+        var encryptedMessage = nacl.secretbox(message, nonce, key);
+        if (returnAsString) {
+            return nacl.util.encodeBase64(encryptedMessage);
+        }
+        return encryptedMessage;
     },
     /**
      * decrypts the given message asymmetrically with the given (private) key
      * @param message - the message to be decrypted
      * @param key - the private key that is used to decrypt the message
      */
-    asymDecryptWithKey: function (message, key) {
-        var rsaKey = new RSA(key);
-        return rsaKey.decrypt(message, 'utf8');
+    asymDecryptWithKey: function (message, nonce, publicKey, secretKey) {
+        return nacl.box.open(message, nonce, publicKey, secretKey);
     },
     /**
      * decrypts the given message symmetrically with the given  key
      * @param message - the message to be decrypted
      * @param key - key that is used to en-/decrypt the message
      */
-    symDecryptWithKey: function (message, key) {
-        var decryptedMessage = CryptoJS.AES.decrypt(message, key);
-        return decryptedMessage.toString(CryptoJS.enc.Utf8);
+    symDecryptWithKey: function (cipher, nonce, key) {
+        var returnAsString = _.isString(cipher);
+        if (returnAsString) {
+            cipher = nacl.util.decodeBase64(cipher);
+        }
+        var decryptedMessage = nacl.secretbox.open(cipher, nonce, key);
+        if (returnAsString) {
+            return nacl.util.encodeUTF8(decryptedMessage);
+        }
+        return decryptedMessage;
     },
     /**
      * generates a random key which may be used for symmetric crypto
@@ -187,15 +216,18 @@ EncryptionUtils = {
             searchObj = {
                 userId: user._id
             },
-            privateKey = Session.get('privateKey'),
+            privateKey = getPrivateKey(),
             encryptedKeys = _.where(principal.encryptedPrivateKeys,
                 searchObj);
 
         if (!encryptedKeys.length) {
             return;
         }
+        var publicKeyForDocumentKey = principal.publicKey;
         // return decrypted key
-        return self.asymDecryptWithKey(encryptedKeys[0].key, privateKey);
+        return self.asymDecryptWithKey(encryptedKeys[0].key,
+            encryptedKeys[0].asymNonce, publicKeyForDocumentKey,
+            privateKey);
     },
     /**
      * search if a principal for the given params exists
@@ -216,7 +248,9 @@ EncryptionUtils = {
      * @param userId - this might NOT be the currently signed in user
      */
     shareDocWithUser: function (docId, docType, userId) {
-        var self = this;
+        var self = this,
+            asymNonce = self.generate24ByteNonce();
+
         // find principal of user to share post with
         var userPrincipal = self.getPrincipal('user', userId);
         if (!userPrincipal) {
@@ -233,13 +267,16 @@ EncryptionUtils = {
                 docId);
             return;
         }
+
+        var userPublicKey = userPrincipal.publicKey;
+        var secretKeyForDocumentKey = documentPrincipal.privateKey;
         // get the decrypted key that was used to encrypt the document
         var documentKey = self.getDocumentKeyOfPrincipal(
             documentPrincipal);
         // encrypted the document key with the public key of the user that
         // the document should be shared with
         var encryptedDocumentKey = self.asymEncryptWithKey(documentKey,
-            userPrincipal.publicKey);
+            asymNonce, userPublicKey, secretKeyForDocumentKey);
 
         // update the principal
         Principals.update({
@@ -248,7 +285,8 @@ EncryptionUtils = {
             $push: {
                 encryptedPrivateKeys: {
                     userId: userId,
-                    key: encryptedDocumentKey
+                    key: encryptedDocumentKey,
+                    asymNonce: asymNonce
                 }
             }
         });
@@ -312,35 +350,40 @@ EncryptionUtils = {
      * @param password - plaintext password of the user
      * @param callback - completion hander
      */
-    extendProfile: function (password, callback) {
+    extendProfile: function (password) {
         var self = this;
         var userId = Meteor.userId();
         // generate keypair
-        var key = new RSAKey();
-        // generate a 2048 bit key async
-        key.generateAsync(2048, "03", function () {
-            var unencryptedPrivateKey = key.privatePEM();
-            // store the raw private key in the session
-            Session.setAuth('privateKey', unencryptedPrivateKey);
-            // encrypt the user's private key
-            var privateKey = self.symEncryptWithKey(
-                unencryptedPrivateKey, password);
+        var keyPair = nacl.box.keyPair();
 
-            // use meteor call since the client might/should not be allowd
-            // to update the user document client-side
-            Meteor.call('storeEncryptedPrivateKey', privateKey);
-            // add a principal for the user
-            Principals.insert({
-                dataType: 'user',
-                dataId: userId,
-                publicKey: key.publicPEM()
-            });
+        // encrypt the user's private key
+        var nonce = self.generate24ByteNonce();
+        password = self.generate32ByteKeyFromPassword(password);
 
-            if (callback) {
-                callback();
-            }
+        var privateKey = self.symEncryptWithKey(
+            keyPair.secretKey,
+            nonce,
+            password.byteArray
+        );
+
+        // store the raw private key in the session as base64 string
+        signedInSession.setAuth('privateKey', keyPair.secretKey);
+
+        // use meteor call since the client might/should not be allowd
+        // to update the user document client-side
+        // store the private key as uInt8Array
+        Meteor.call('storeEncryptedPrivateKey', privateKey);
+
+        // add a principal for the user
+        Principals.insert({
+            dataType: 'user',
+            dataId: userId,
+            addedPasswordBytes: password.randomBytes,
+            // store the public key as uInt8Array
+            publicKey: keyPair.publicKey,
+            // store the nonce key as uInt8Array
+            symNonce: nonce
         });
-
     },
     /**
      * decrypts the users privateKey with the given password symmetrically
@@ -361,13 +404,77 @@ EncryptionUtils = {
         // check if user already has a keypair
         if (user.profile && user.profile.privateKey) {
             console.info('private key found -> decrypting it now');
-            var privateKey = self.symDecryptWithKey(user.profile.privateKey,
-                password);
-            Session.setAuth('privateKey', privateKey);
+            Meteor.subscribe('principals', function () {
+                var principal = self.getPrincipal('user', user._id);
+
+                if (!principal) {
+                    console.warn('no user principal found');
+                    return;
+                }
+
+                password = self.generate32ByteKeyFromPassword(
+                    password, principal.addedPasswordBytes);
+                // decrypt private key of the user using his password and nonce
+                var privateKey = self.symDecryptWithKey(
+                    user.profile.privateKey,
+                    principal.symNonce,
+                    password.byteArray
+                );
+
+                signedInSession.setAuth('privateKey', {privateKey: privateKey});
+            });
         } else {
             console.info('no private key found -> generating one now');
             // if not it is probably his first login -> generate keypair
             self.extendProfile(password);
         }
+    },
+
+    /**
+     * generate 24Byte nonce
+     */
+    generate24ByteNonce: function () {
+        return nacl.randomBytes(24);
+    },
+
+    /**
+     * generate 32Byte Key from password
+     * @param String
+     */
+    generate32ByteKeyFromPassword: function (password, randomBytes) {
+        var self = this,
+            byteArray = nacl.util.decodeUTF8(password);
+
+        if (byteArray.length < 32) {
+            // if there are no randomBytes provided -> generate some
+            if (!randomBytes) {
+                randomBytes = nacl.randomBytes(32 - byteArray.length);
+            }
+            // store the random bytes so we can use them again when we want to decrypt
+            byteArray = self.appendBuffer(byteArray, randomBytes);
+
+        } else {
+            byteArray = byteArray.slice(0, 31);
+        }
+        // return the byte array and the added bytes
+        return {
+            byteArray: byteArray,
+            randomBytes: randomBytes
+        };
+    },
+
+    /**
+     * Creates a new Uint8Array based on two different uInt8Arrays
+     *
+     * @private
+     * @param {uInt8Array} buffer1 The first buffer.
+     * @param {uInt8Array} buffer2 The second buffer.
+     * @return {uInt8Array} The new ArrayBuffer created out of the two.
+     */
+    appendBuffer: function (buffer1, buffer2) {
+        var tmp = new Uint8Array(buffer1.length + buffer2.length);
+        tmp.set(new Uint8Array(buffer1), 0);
+        tmp.set(new Uint8Array(buffer2), buffer1.length);
+        return tmp;
     }
 };

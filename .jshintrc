@@ -133,9 +133,11 @@
       "Encryption": false,
       "SimpleSchema": false,
       "Security": false,
+      "PersistentReactiveDict": false,
 
       // globals
       "Schema": false,
+      "nacl": false,
 
       // collections
       "Principals": false

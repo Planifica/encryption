@@ -22,6 +22,11 @@ window.secureShared = {
     return window.btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
   },
 
+  // Create url-safe base64 string from uInt8Array.
+  uInt8Array2str: function(uInt8Array) {
+    return window.btoa(String.fromCharCode.apply(null, uInt8Array));
+  },
+
   // Create an array buffer from a string.
   str2ab : function(str) {
     var buf = new ArrayBuffer(str.length); // 2 bytes for each char
