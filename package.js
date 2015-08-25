@@ -21,21 +21,7 @@ Package.onUse(function(api) {
   api.use('robertlowe:persistent-reactive-dict');
   api.imply(['planifica:node-rsa', 'jparker:crypto-aes']);
 
-  // rsa
-  api.addFiles('jsbn-master/base64.js', 'client');
-  api.addFiles('jsbn-master/ec.js', 'client');
-  api.addFiles('jsbn-master/jsbn.js', 'client');
-  api.addFiles('jsbn-master/jsbn2.js', 'client');
-  api.addFiles('jsbn-master/prng4.js', 'client');
-  api.addFiles('jsbn-master/rng.js', 'client');
-  api.addFiles('jsbn-master/rsa.js', 'client');
-  api.addFiles('jsbn-master/rsa2.js', 'client');
-  api.addFiles('jsbn-master/sec.js', 'client');
-  api.addFiles('jsbn-master/sha1.js', 'client');
   api.addFiles('tweetnacl-js-master/nacl-fast.min.js', 'client');
-
-  // rsa async
-  api.addFiles('rsasync-master/rsasync.js', 'client');
 
   api.addFiles('principals.js', ['client', 'server']);
   api.addFiles('server.js', 'server');
@@ -45,7 +31,6 @@ Package.onUse(function(api) {
 
   api.export('CollectionEncryption');
   api.export('EncryptionUtils');
-  api.export('RSAKey');
   api.export('Principals');
 });
 
