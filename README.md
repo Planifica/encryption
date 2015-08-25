@@ -18,13 +18,13 @@ meteor add planifica:encryption
 ### Generating keypairs for every user
 Then you need to trigger the ECC keypair generation. Optimally you do this once a user has created his account. Note that you need the (unencrypted) password of the user here in order for the package to encrypt the private key of the user (with the user's password). This makes sure that the private key can be stored securely in the database, without the user having the need to remember it. This is how you trigger the keypair generation. The private key will automatically be stored inside the users profile (in encrypted form) and the public key in the users principal object.
 ```js
-    EncryptionUtils.extendProfile(password, function () {
-      // callback once keypair is generated finished
-    });
+EncryptionUtils.extendProfile(password, function () {
+// callback once keypair is generated finished
+});
 ```
 Additionaly once a user logs in, you need to tell the package to decrypt the users private key and make it available for en-/decrypting data. Again you need the raw password of the user in order to decrypt the private key.
 ```js
-    EncryptionUtils.onSignIn(password);
+EncryptionUtils.onSignIn(password);
 ```
 We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in your apps, which has a `onSubmitHook`, which you can use for triggering the generation of the keypair and the decryption of the users private key:
 
