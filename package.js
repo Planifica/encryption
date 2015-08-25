@@ -13,7 +13,7 @@ Package.describe({
 Package.onUse(function(api) {
   api.versionsFrom('1.1.0.2');
 
-  api.use(['underscore', 'planifica:node-rsa', 'jparker:crypto-aes', 'check'], 'client');
+  api.use(['underscore', 'check'], 'client');
   api.use('u2622:persistent-session@0.4.1', 'client');
   api.use('aldeed:simple-schema');
   api.use('ongoworks:security');
