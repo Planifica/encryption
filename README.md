@@ -17,55 +17,57 @@ meteor add planifica:encryption
 ```
 ### Generating keypairs for every user
 Then you need to trigger the ECC keypair generation. Optimally you do this once a user has created his account. Note that you need the (unencrypted) password of the user here in order for the package to encrypt the private key of the user (with the user's password). This makes sure that the private key can be stored securely in the database, without the user having the need to remember it. This is how you trigger the keypair generation. The private key will automatically be stored inside the users profile (in encrypted form) and the public key in the users principal object.
-
+```js
     EncryptionUtils.extendProfile(password, function () {
       // callback once keypair is generated finished
     });
-    
+```
 Additionaly once a user logs in, you need to tell the package to decrypt the users private key and make it available for en-/decrypting data. Again you need the raw password of the user in order to decrypt the private key.
-
+```js
     EncryptionUtils.onSignIn(password);
-    
+```
 We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in your apps, which has a `onSubmitHook`, which you can use for triggering the generation of the keypair and the decryption of the users private key:
 
-    AccountsTemplates.configure({
-        onSubmitHook: function (error, state) {
-            if (error) {
-                return;
-            }
-            var password = $('#at-pwd-form :input#at-field-password').val();
-            if (state === 'signIn' || state === 'signUp') {
-    			EncryptionUtils.onSignIn(password);
-    		}
+```js
+AccountsTemplates.configure({
+    onSubmitHook: function (error, state) {
+        if (error) {
+            return;
         }
-    });
+        var password = $('#at-pwd-form :input#at-field-password').val();
+        if (state === 'signIn' || state === 'signUp') {
+			EncryptionUtils.onSignIn(password);
+		}
+    }
+});
+```
     
 ### Subscribing to the Principals collection
 The package internally uses the Principals collection, which stores all kinds of encryption information for specific documents, like private and public keys, nonces and information about shared documents.  
 So always make sure that you subscribe to the principals collection, if you want to access your encrypted data:
-
-    Meteor.subscribe('principals');
-    
+```js
+Meteor.subscribe('principals');
+```
 This subscribes to all the principals that the current user is the owner of and to all principals that are shared with the current user.  
 You can also subscribe to the principal of a specific document by passing the id of the document as the first param:
-
-    Meteor.subscribe('principals, _id);
-
+```js
+Meteor.subscribe('principals, _id);
+```
 ### Encrypting a collection
     
 In order to encrypt a collection you need to create a instance of `CollectionEncryption` and do some configuration:
-
-    if (Meteor.isClient) {
-        // define fields to be encrypted
-        var fields = ['message'];
-        // init encryption on collection Messages
-        DataObjectsEncryption = new CollectionEncryption(
-            Messages,
-            fields,
-            {}
-        );
-    }
-    
+```js
+if (Meteor.isClient) {
+    // define fields to be encrypted
+    var fields = ['message'];
+    // init encryption on collection Messages
+    DataObjectsEncryption = new CollectionEncryption(
+        Messages,
+        fields,
+        {}
+    );
+}
+```
 The CollectionEncryption constructor takes the following parameters:
 * The collection you want to encrypt
 * An array of fields that you want to encrypt (no sub-properties supported at the moment)
