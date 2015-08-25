@@ -10,7 +10,7 @@ var signedInSession = new PersistentReactiveDict('mySession');
 // method that retunrsn an Uint8Array of the private key
 var getPrivateKey = function () {
   var privateKeyObj = signedInSession.get('privateKey');
-  if (privateKeyObj) {
+  if (privateKeyObj && privateKeyObj.privateKey) {
     return new Uint8Array(_.values(privateKeyObj.privateKey));
   }
   return null;
@@ -367,7 +367,7 @@ EncryptionUtils = {
         );
 
         // store the raw private key in the session as base64 string
-        signedInSession.setAuth('privateKey', keyPair.secretKey);
+        signedInSession.setAuth('privateKey', {privateKey: keyPair.secretKey});
 
         // use meteor call since the client might/should not be allowd
         // to update the user document client-side
