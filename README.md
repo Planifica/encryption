@@ -34,14 +34,9 @@ We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in
                 return;
             }
             var password = $('#at-pwd-form :input#at-field-password').val();
-            if (state === 'signIn') {
-                EncryptionUtils.onSignIn(password);
-            } else if (state === "signUp") {
-                EncryptionUtils.extendProfile(password, function () {
-                    // Users Keypair successfully generated
-                });
-                // done
-            }
+            if (state === 'signIn' || state === 'signUp') {
+    			EncryptionUtils.onSignIn(password);
+    		}
         }
     });
     
