@@ -45,6 +45,17 @@ We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in
         }
     });
     
+### Subscribing to the Principals collection
+The package internally uses the Principals collection, which stores all kinds of encryption information for specific documents, like private and public keys, nonces and information about shared documents.  
+So always make sure that you subscribe to the principals collection, if you want to access your encrypted data:
+
+    Meteor.subscribe('principals');
+    
+This subscribes to all the principals that the current user is the owner of and to all principals that are shared with the current user.  
+You can also subscribe to the principal of a specific document by passing the id of the document as the first param:
+
+    Meteor.subscribe('principals, _id);
+
 ### Encrypting a collection
     
 In order to encrypt a collection you need to create a instance of `CollectionEncryption` and do some configuration:
