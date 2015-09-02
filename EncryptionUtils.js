@@ -212,7 +212,7 @@ EncryptionUtils = {
     generateRandomKey: function () {
 
         if (window.secureShared && window.secureShared.generatePassphrase) {
-            return CryptoJS.lib.WordArray.random(16).toString();
+            return nacl.util.decodeUTF8(CryptoJS.lib.WordArray.random(16).toString());
         }
         // TODO no else yet
     },
