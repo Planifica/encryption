@@ -63,8 +63,10 @@ EncryptionUtils = {
         }
         // encrypt the desired fields
         _.each(fields, function (field) {
-            newDoc[field] = self.symEncryptWithKey(doc[field],
-                symNonce, documentKey);
+            if(doc.hasOwnProperty(field)){
+              newDoc[field] = self.symEncryptWithKey(doc[field],
+                  symNonce, documentKey);
+            }
         });
         if (existingPrincipal) {
             // if the doc was just updated then return
