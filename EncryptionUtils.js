@@ -146,7 +146,9 @@ EncryptionUtils = {
     /**
      * encrypts the given message asymmetrically with the given (public) key
      * @param message - the message to be encrypted
-     * @param key - the public key that is used to encrypt the message
+     * @param nonce - the nonce used for the encryption
+     * @param publicKey - the public key that is used to encrypt the message
+     * @param secretKey - the private key that represents the message
      */
     asymEncryptWithKey: function (message, nonce, publicKey, secretKey) {
         return nacl.box(message, nonce, publicKey, secretKey);
@@ -154,6 +156,7 @@ EncryptionUtils = {
     /**
      * encrypts the given message symmetrically with the given  key
      * @param message - the message to be encrypted
+     * @param nonce - the nonce used for the encryption
      * @param key - key that is used to en-/decrypt the message
      */
     symEncryptWithKey: function (message, nonce, key) {
@@ -168,9 +171,20 @@ EncryptionUtils = {
         return encryptedMessage;
     },
     /**
+     * encrypts the given message symmetrically with the users' private key
+     * @param message - the message to be encrypted
+     * @param nonce - the nonce used for the encryption
+     */
+    symEncryptWithCurrentUsersPrivateKey: function (message, nonce) {
+        var self = this;
+        return self.symEncryptWithKey(message, nonce, getPrivateKey());
+    },
+    /**
      * decrypts the given message asymmetrically with the given (private) key
      * @param message - the message to be decrypted
-     * @param key - the private key that is used to decrypt the message
+     * @param nonce - the nonce used for the decryption
+     * @param publicKey - the public key that represents the message
+     * @param secretKey - the private key of the user that wants to decrypt the message
      */
     asymDecryptWithKey: function (message, nonce, publicKey, secretKey) {
         return nacl.box.open(message, nonce, publicKey, secretKey);
@@ -178,6 +192,7 @@ EncryptionUtils = {
     /**
      * decrypts the given message symmetrically with the given  key
      * @param message - the message to be decrypted
+     * @param nonce - the nonce used for the decryption
      * @param key - key that is used to en-/decrypt the message
      */
     symDecryptWithKey: function (cipher, nonce, key) {
