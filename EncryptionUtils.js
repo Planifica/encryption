@@ -11,7 +11,6 @@ var signedInSession = new PersistentReactiveDict('mySession');
 var getPrivateKey = function () {
   var privateKeyObj = signedInSession.get('privateKey');
   if (privateKeyObj && privateKeyObj.privateKey) {
-    EncryptionUtils.hasPrivateKey.set(true);
     return new Uint8Array(_.values(privateKeyObj.privateKey));
   }
   return null;
@@ -24,16 +23,18 @@ EncryptionUtils = {
     options: {
         enforceEmailVerification: true
     },
-
-    hasPrivateKey: new ReactiveVar(false),
+    hasPrivateKey: function () {
+      if(getPrivateKey()){
+        return true;
+      }
+      return false;
+    },
     waitForPrivateKey: function (callback) {
-      var self = this;
       check(callback, Function);
       // wait for
       Tracker.autorun(function (computation) {
         var privateKeyObj = signedInSession.get('privateKey');
         if (privateKeyObj && privateKeyObj.privateKey) {
-          self.hasPrivateKey.set(true);
           computation.stop();
           callback();
         }
