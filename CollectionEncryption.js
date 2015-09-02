@@ -250,7 +250,7 @@ _.extend(CollectionEncryption.prototype, {
             return;
         }
         // generate a random key for the document
-        var documentKey = nacl.randomBytes(32);
+        var documentKey = EncryptionUtils.generateRandomKey();
 
         // call the callback once the key is encrypted
         if (self.config.onKeyGenerated) {
