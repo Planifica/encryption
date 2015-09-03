@@ -180,6 +180,15 @@ EncryptionUtils = {
         return self.symEncryptWithKey(message, nonce, getPrivateKey());
     },
     /**
+     * decrypts the given message symmetrically with the users' private key
+     * @param message - the message to be decrypted
+     * @param nonce - the nonce used for the decryption
+     */
+    symDecryptWithCurrentUsersPrivateKey: function (message, nonce) {
+        var self = this;
+        return self.symDecryptWithKey(message, nonce, getPrivateKey());
+    },
+    /**
      * decrypts the given message asymmetrically with the given (private) key
      * @param message - the message to be decrypted
      * @param nonce - the nonce used for the decryption
