@@ -85,7 +85,7 @@ _.extend(CollectionEncryption.prototype, {
             return;
         }
         // if the doc already is decrypted, don't do anything
-        if (!doc.encrypted) {
+        if (doc.encrypted === false) {
             return;
         }
         // otherwise decrypt the document
@@ -225,6 +225,7 @@ _.extend(CollectionEncryption.prototype, {
             // if so just return the modifier - we have no need to adapt it
             return modifier;
         }
+        modifier.$set.encrypted = false;
         // tell the encryption package what data needs to encrypted next
         self._storeDocToEncrypt(doc);
         // unload warning while generating keys
