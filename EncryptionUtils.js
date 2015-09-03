@@ -23,9 +23,22 @@ EncryptionUtils = {
     options: {
         enforceEmailVerification: true
     },
-
     hasPrivateKey: function () {
-      return !_.isNull(getPrivateKey());
+      if(getPrivateKey()){
+        return true;
+      }
+      return false;
+    },
+    waitForPrivateKey: function (callback) {
+      check(callback, Function);
+      // wait for
+      Tracker.autorun(function (computation) {
+        var privateKeyObj = signedInSession.get('privateKey');
+        if (privateKeyObj && privateKeyObj.privateKey) {
+          computation.stop();
+          callback();
+        }
+      });
     },
     /**
      * sets the options for all encryptions functions

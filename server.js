@@ -28,12 +28,12 @@ Principals.permit(['update', 'remove'])
     .ifCurrentUserIsOwner()
     .apply();
 
-Meteor.publish("principals", function (partnerId) {
-    if (partnerId) {
+Meteor.publish("principals", function (dataId) {
+    if (dataId) {
         // subscribe to all own principals and the user principal of the partner
         return Principals.find({
             $or: [{
-                dataId: partnerId
+                dataId: dataId
             }, {
                 ownerId: this.userId
             }, {
