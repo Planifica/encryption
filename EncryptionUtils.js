@@ -459,6 +459,7 @@ EncryptionUtils = {
 
                 password = self.generate32ByteKeyFromPassword(
                     password, principal.addedPasswordBytes);
+
                 // decrypt private key of the user using his password and nonce
                 var privateKey = self.symDecryptWithKey(
                     user.profile.privateKey,
@@ -547,15 +548,7 @@ EncryptionUtils = {
         // store the private key as uInt8Array
         Meteor.call('storeEncryptedPrivateKey', privateKey);
 
-        var principal = Principals.findOne({
-            dataType: 'user',
-            dataId: Meteor.userId()
-        });
-        if (!principal) {
-            console.warn('no user principal found for user with id ' +
-                Meteor.userId());
-            return;
-        }
+        var principal = self.getPrincipal('user', Meteor.userId());
         // update the nonce
         Principals.update({
             _id: principal._id
