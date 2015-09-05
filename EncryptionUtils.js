@@ -9,11 +9,11 @@ var CONFIG_PAT = {
 var signedInSession = new PersistentReactiveDict('mySession');
 // method that retunrsn an Uint8Array of the private key
 var getPrivateKey = function () {
-  var privateKeyObj = signedInSession.get('privateKey');
-  if (privateKeyObj && privateKeyObj.privateKey) {
-    return new Uint8Array(_.values(privateKeyObj.privateKey));
-  }
-  return null;
+    var privateKeyObj = signedInSession.get('privateKey');
+    if (privateKeyObj && privateKeyObj.privateKey) {
+        return new Uint8Array(_.values(privateKeyObj.privateKey));
+    }
+    return null;
 };
 
 EncryptionUtils = {
@@ -24,21 +24,22 @@ EncryptionUtils = {
         enforceEmailVerification: true
     },
     hasPrivateKey: function () {
-      if(getPrivateKey()){
-        return true;
-      }
-      return false;
+        if (getPrivateKey()) {
+            return true;
+        }
+        return false;
     },
     waitForPrivateKey: function (callback) {
-      check(callback, Function);
-      // wait for
-      Tracker.autorun(function (computation) {
-        var privateKeyObj = signedInSession.get('privateKey');
-        if (privateKeyObj && privateKeyObj.privateKey) {
-          computation.stop();
-          callback();
-        }
-      });
+        check(callback, Function);
+        // wait for
+        Tracker.autorun(function (computation) {
+            var privateKeyObj = signedInSession.get(
+                'privateKey');
+            if (privateKeyObj && privateKeyObj.privateKey) {
+                computation.stop();
+                callback();
+            }
+        });
     },
     /**
      * sets the options for all encryptions functions
@@ -71,14 +72,16 @@ EncryptionUtils = {
 
         if (existingPrincipal) {
             // if there is a principal get the "old" document key and use it
-            documentKey = self.getDocumentKeyOfPrincipal(existingPrincipal);
+            documentKey = self.getDocumentKeyOfPrincipal(
+                existingPrincipal);
             symNonce = existingPrincipal.symNonce;
         }
         // encrypt the desired fields
         _.each(fields, function (field) {
-            if(doc.hasOwnProperty(field)){
-              newDoc[field] = self.symEncryptWithKey(doc[field],
-                  symNonce, documentKey);
+            if (doc.hasOwnProperty(field)) {
+                newDoc[field] = self.symEncryptWithKey(doc[
+                        field],
+                    symNonce, documentKey);
             }
         });
         if (existingPrincipal) {
@@ -234,7 +237,8 @@ EncryptionUtils = {
     generateRandomKey: function () {
 
         if (window.secureShared && window.secureShared.generatePassphrase) {
-            return nacl.util.decodeUTF8(CryptoJS.lib.WordArray.random(16).toString());
+            return nacl.util.decodeUTF8(CryptoJS.lib.WordArray.random(
+                16).toString());
         }
         // TODO no else yet
     },
@@ -406,7 +410,9 @@ EncryptionUtils = {
         );
 
         // store the raw private key in the session as base64 string
-        signedInSession.setAuth('privateKey', {privateKey: keyPair.secretKey});
+        signedInSession.setAuth('privateKey', {
+            privateKey: keyPair.secretKey
+        });
 
         // use meteor call since the client might/should not be allowd
         // to update the user document client-side
@@ -460,7 +466,9 @@ EncryptionUtils = {
                     password.byteArray
                 );
 
-                signedInSession.setAuth('privateKey', {privateKey: privateKey});
+                signedInSession.setAuth('privateKey', {
+                    privateKey: privateKey
+                });
             });
         } else {
             console.info('no private key found -> generating one now');
@@ -515,5 +523,48 @@ EncryptionUtils = {
         tmp.set(new Uint8Array(buffer1), 0);
         tmp.set(new Uint8Array(buffer2), buffer1.length);
         return tmp;
+    },
+
+    /**
+     * encrypts the private key with the new password and stores the result
+     * @param password
+     */
+    changePwd: function (password) {
+        var self = this;
+        // encrypt the user's private key
+        var nonce = self.generate24ByteNonce();
+        password = self.generate32ByteKeyFromPassword(password);
+
+        // encrypt the private key using the new password
+        var privateKey = self.symEncryptWithKey(
+            getPrivateKey(),
+            nonce,
+            password.byteArray
+        );
+
+        // use meteor call since the client might/should not be allowd
+        // to update the user document client-side
+        // store the private key as uInt8Array
+        Meteor.call('storeEncryptedPrivateKey', privateKey);
+
+        var principal = Principals.findOne({
+            dataType: 'user',
+            dataId: Meteor.userId()
+        });
+        if (!principal) {
+            console.warn('no user principal found for user with id ' +
+                Meteor.userId());
+            return;
+        }
+        // update the nonce
+        Principals.update({
+            _id: principal._id
+        }, {
+            $set: {
+                addedPasswordBytes: password.randomBytes,
+                // store the nonce key as uInt8Array
+                symNonce: nonce
+            }
+        });
     }
 };
