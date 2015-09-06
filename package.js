@@ -19,6 +19,8 @@ Package.onUse(function(api) {
   api.use('ongoworks:security');
   api.use('matb33:collection-hooks@0.7.13');
   api.use('robertlowe:persistent-reactive-dict');
+  api.use('jparker:crypto-core@0.1.0');
+  api.use('jparker:crypto-base64@0.1.0');
 
   api.addFiles('tweetnacl-js-master/nacl-fast.min.js', 'client');
 
