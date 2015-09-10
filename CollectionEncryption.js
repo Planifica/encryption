@@ -69,9 +69,6 @@ _.extend(CollectionEncryption.prototype, {
         // listen to findOne events
         self.collection.after.findOne(function (userId, selector,
             options, doc) {
-            if (!Meteor.user()) {
-                return;
-            }
             doc = self._decryptDoc(doc);
         });
     },

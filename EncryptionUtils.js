@@ -10,6 +10,7 @@ var signedInSession = new PersistentReactiveDict('mySession');
 // method that retunrsn an Uint8Array of the private key
 var getPrivateKey = function () {
     var privateKeyObj = signedInSession.get('privateKey');
+    console.log(privateKeyObj);
     if (privateKeyObj && privateKeyObj.privateKey) {
         return new Uint8Array(_.values(privateKeyObj.privateKey));
     }
@@ -39,6 +40,22 @@ EncryptionUtils = {
                 computation.stop();
                 callback();
             }
+        });
+    },
+    /*
+     * overrideable method that returns the current User
+     * or whatever you want to use as your context
+     */
+    userId: function () {
+      return Meteor.userId();
+    },
+    /**
+      * hard sets the private key
+      * @param privateKey
+      */
+    setPrivateKey: function (privateKey) {
+        signedInSession.setAuth('privateKey', {
+            privateKey: privateKey
         });
     },
     /**
@@ -144,6 +161,7 @@ EncryptionUtils = {
             principal);
         // return if something went wrong
         if (!decryptedDocumentKey) {
+            console.warn('could not decrypt the document key of ',doc);
             return doc;
         }
         // decrypt each given field
@@ -255,9 +273,8 @@ EncryptionUtils = {
         }
 
         var self = this,
-            user = Meteor.user(),
             searchObj = {
-                userId: user._id
+                userId: self.userId()
             },
             privateKey = getPrivateKey(),
             encryptedKeys = _.where(principal.encryptedPrivateKeys,
