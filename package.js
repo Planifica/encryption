@@ -2,9 +2,9 @@ Package.describe({
   name: 'planifica:encryption',
   version: '0.0.1',
   // Brief, one-line summary of the package.
-  summary: '',
+  summary: 'Client-Side Encryption for Mongo Collections',
   // URL to the Git repository containing the source code for this package.
-  git: '',
+  git: 'https://github.com/Planifica/encryption',
   // By default, Meteor will default to using README.md for documentation.
   // To avoid submitting documentation, set this field to null.
   documentation: 'README.md'
@@ -15,12 +15,12 @@ Package.onUse(function(api) {
 
   api.use(['underscore', 'check'], 'client');
   api.use('u2622:persistent-session@0.4.1', 'client');
-  api.use('aldeed:simple-schema');
-  api.use('ongoworks:security');
-  api.use('matb33:collection-hooks@0.7.13');
-  api.use('robertlowe:persistent-reactive-dict');
-  api.use('jparker:crypto-core@0.1.0');
-  api.use('jparker:crypto-base64@0.1.0');
+  api.use('aldeed:collection2@2.5.0', 'client');
+  api.use('ongoworks:security@1.2.0', 'client');
+  api.use('matb33:collection-hooks@0.7.13', 'client');
+  api.use('robertlowe:persistent-reactive-dict@0.1.2', 'client');
+  api.use('jparker:crypto-core@0.1.0', 'client');
+  api.use('jparker:crypto-base64@0.1.0', 'client');
 
   api.addFiles('tweetnacl-js-master/nacl-fast.min.js', 'client');
 
