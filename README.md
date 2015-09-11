@@ -89,6 +89,15 @@ MessagesEncryption = new CollectionEncryption(WelcomeTexts, fields, {
     }
 });
  ```
+## Configuration
+At the moment there is not much to configure, but we will extend this section in the future.
+You can call the `configure` method on the EncryptionUtils object to do some more configuration:
+```js
+EncryptionUtils.configure(config);
+```
+Options:
+* `enforceEmailVerification`: `Boolean`
+
 ## How secure is it?
 Like every other system, what it comes down to is the password of the user. If the user's password is not secure, his data also is not.
 For every encryption we use the [TweetNaCl.js](https://github.com/dchest/tweetnacl-js), which is a port of [TweetNaCl](http://tweetnacl.cr.yp.to/) / [NaCl](http://nacl.cr.yp.to/) to JavaScript for modern browsers. At the moment this package does *not* authenticate the partners that are communicating with each other (e.g. with Diffie-Hellman)!
