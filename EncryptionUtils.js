@@ -10,7 +10,6 @@ var signedInSession = new PersistentReactiveDict('mySession');
 // method that retunrsn an Uint8Array of the private key
 var getPrivateKey = function () {
     var privateKeyObj = signedInSession.get('privateKey');
-    console.log(privateKeyObj);
     if (privateKeyObj && privateKeyObj.privateKey) {
         return new Uint8Array(_.values(privateKeyObj.privateKey));
     }
