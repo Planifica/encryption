@@ -16,17 +16,13 @@ First install the package:
 meteor add planifica:encryption
 ```
 ### Generating keypairs for every user
-Then you need to trigger the ECC keypair generation. Optimally you do this once a user has created his account. Note that you need the (unencrypted) password of the user here in order for the package to encrypt the private key of the user (with the user's password). This makes sure that the private key can be stored securely in the database, without the user having the need to remember it. This is how you trigger the keypair generation. The private key will automatically be stored inside the users profile (in encrypted form) and the public key in the users principal object.
-```js
-EncryptionUtils.extendProfile(password, function () {
-// callback once keypair is generated finished
-});
-```
-Additionaly once a user logs in, you need to tell the package to decrypt the users private key and make it available for en-/decrypting data. Again you need the raw password of the user in order to decrypt the private key.
+Then you need to trigger the ECC keypair generation. Optimally you do this when the user first signes in. Note that you need the (unencrypted) password of the user here in order for the package to encrypt the private key of the user (with the user's password). This makes sure that the private key can be stored securely in the database, without the user having the need to remember it. The private key will automatically be stored inside the users profile (in encrypted form) and the public key in the users principal object.  
+Also once a user logs in, the users private key needs to be decrypted and made available for en-/decrypting data. Again you need the raw password of the user in order to decrypt the private key.
+This is how you trigger both - the key generation (on first sign in) and the private key decryption (on every sign in):
 ```js
 EncryptionUtils.onSignIn(password);
 ```
-We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in your apps, which has a `onSubmitHook`, which you can use for triggering the generation of the keypair and the decryption of the users private key:
+We recommend using [Useraccounts](https://atmospherejs.com/useraccounts/core) in your apps, which has a `onSubmitHook`, which you can use for this:
 
 ```js
 AccountsTemplates.configure({
@@ -51,7 +47,7 @@ Meteor.subscribe('principals');
 This subscribes to all the principals that the current user is the owner of and to all principals that are shared with the current user.  
 You can also subscribe to the principal of a specific document by passing the id of the document as the first param:
 ```js
-Meteor.subscribe('principals, _id);
+Meteor.subscribe('principals', _id);
 ```
 ### Encrypting a collection
     
@@ -74,7 +70,25 @@ The CollectionEncryption constructor takes the following parameters:
 * Configuration object
     * `onKeyGenerated` - callback function that gets called once a key is generated
     * `onFinishedDocEncryption` - callback function that gets called once a document is inserted and encrypted
+## Sharing a document
+In order to share a document of a specific collection you need to call the `shareDocWithUser` function on your CollectionEncryption instance:
+```js
+MessagesEncryption.shareDocWithUser(docId, userToShareWithId);
+```
+If you want to share a document in the moment that it is added to the collection (e.g. in a chat) you can call this function in the `onFinishedDocEncryption` callback:
+```js
+// init encryption on collection Messages
+MessagesEncryption = new CollectionEncryption(WelcomeTexts, fields, {
 
+    onFinishedDocEncryption: function (doc) {
+        // share the inserted doc with the chat partner
+        MessagesEncryption.shareDocWithUser(
+            doc._id,
+            doc.partnerId
+        );
+    }
+});
+ ```
 ## How secure is it?
 Like every other system, what it comes down to is the password of the user. If the user's password is not secure, his data also is not.
 For every encryption we use the [TweetNaCl.js](https://github.com/dchest/tweetnacl-js), which is a port of [TweetNaCl](http://tweetnacl.cr.yp.to/) / [NaCl](http://nacl.cr.yp.to/) to JavaScript for modern browsers. At the moment this package does *not* authenticate the partners that are communicating with each other (e.g. with Diffie-Hellman)!
