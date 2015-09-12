@@ -70,6 +70,7 @@ The CollectionEncryption constructor takes the following parameters:
 * Configuration object
     * `onKeyGenerated` - callback function that gets called once a key is generated
     * `onFinishedDocEncryption` - callback function that gets called once a document is inserted and encrypted
+
 ## Sharing a document
 In order to share a document of a specific collection you need to call the `shareDocWithUser` function on your CollectionEncryption instance:
 ```js
