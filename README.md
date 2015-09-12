@@ -8,7 +8,7 @@ This package supports:
 * Sharing encrypted information with other users
 
 This package helps you write Meteor applications that support encryption with ease.
-Also see this [blog post]() to get started.
+Also see this [blog post](https://medium.com/@PhilippSpo/client-side-encryption-in-meteor-3ae982e557a8) to get started.
 
 ## Getting Started
 First install the package:
