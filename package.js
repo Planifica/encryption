@@ -17,7 +17,7 @@ Package.onUse(function(api) {
   api.use('u2622:persistent-session@0.4.1', 'client');
   api.use('aldeed:collection2@2.5.0');
   api.use('ongoworks:security@1.2.0');
-  api.use('matb33:collection-hooks@0.7.13', 'client');
+  api.use('matb33:collection-hooks@0.7.13');
   api.use('robertlowe:persistent-reactive-dict@0.1.2', 'client');
   api.use('jparker:crypto-core@0.1.0', 'client');
   api.use('jparker:crypto-base64@0.1.0', 'client');
