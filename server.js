@@ -7,6 +7,15 @@ Meteor.methods({
                 'profile.privateKey': encryptedKey
             }
         });
+    },
+    initEncryptionSchema: function (collectionName, fieldKey) {
+        var schema = {};
+        schema[fieldKey] = {
+            type: Boolean,
+            defaultValue: false
+        };
+        // add ecrypted field to the collection schema
+        Mongo.Collection.get(collectionName).attachSchema(schema);
     }
 });
 

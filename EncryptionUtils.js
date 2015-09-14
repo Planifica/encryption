@@ -46,12 +46,12 @@ EncryptionUtils = {
      * or whatever you want to use as your context
      */
     userId: function () {
-      return Meteor.userId();
+        return Meteor.userId();
     },
     /**
-      * hard sets the private key
-      * @param privateKey
-      */
+     * hard sets the private key
+     * @param privateKey
+     */
     setPrivateKey: function (privateKey) {
         signedInSession.setAuth('privateKey', {
             privateKey: privateKey
@@ -280,6 +280,9 @@ EncryptionUtils = {
                 searchObj);
 
         if (!encryptedKeys.length) {
+            console.warn(
+                'document is not shared with the user that tries to decrypt'
+            );
             return;
         }
         var publicKeyForDocumentKey = principal.publicKey;
