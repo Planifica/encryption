@@ -95,9 +95,13 @@ EncryptionUtils = {
         // encrypt the desired fields
         _.each(fields, function (field) {
             if (doc.hasOwnProperty(field)) {
-                newDoc[field] = self.symEncryptWithKey(doc[
-                        field],
-                    symNonce, documentKey);
+                // set field to the encrypted value
+                newDoc[field] = self.symEncryptWithKey(
+                    // pick value
+                    doc[field],
+                    symNonce,
+                    documentKey
+                );
             }
         });
         if (existingPrincipal) {
@@ -112,7 +116,7 @@ EncryptionUtils = {
         var keyPairForDocumentKey = nacl.box.keyPair();
 
         // get the principal of the user
-        var userPrincipal = self.getPrincipal('user', user._id);
+        var userPrincipal = self.getPrincipal('usersPrincipal', user._id);
         if (!userPrincipal) {
             console.warn('no user principal found');
             return;
@@ -145,7 +149,7 @@ EncryptionUtils = {
      * @param fields - the fields of the document to be dercypted
      * @param name - the name of the principal that belongs to the document
      */
-    decryptDoc: function (doc, fields, name) {
+    decryptDoc: function (doc, fields, name, encryptedFieldKey) {
         var self = this;
         // get the principal of the document
         var principal = self.getPrincipal(name, doc._id);
@@ -160,19 +164,23 @@ EncryptionUtils = {
             principal);
         // return if something went wrong
         if (!decryptedDocumentKey) {
-            console.warn('could not decrypt the document key of ',doc);
+            console.warn('could not decrypt the document key of ', doc);
             return doc;
         }
         // decrypt each given field
         _.each(fields, function (field) {
             if (doc.hasOwnProperty(field)) {
-                doc[field] = self.symDecryptWithKey(doc[field],
+                // set decrypted value
+                doc[field] = self.symDecryptWithKey(
+                    // pick deep value
+                    doc[field],
                     principal.symNonce,
-                    decryptedDocumentKey);
+                    decryptedDocumentKey
+                );
             }
         });
         // set encrypted to false for better ui state handling
-        doc.encrypted = false;
+        doc[encryptedFieldKey] = false;
 
         return doc;
     },
@@ -314,7 +322,7 @@ EncryptionUtils = {
             asymNonce = self.generate24ByteNonce();
 
         // find principal of user to share post with
-        var userPrincipal = self.getPrincipal('user', userId);
+        var userPrincipal = self.getPrincipal('usersPrincipal', userId);
         if (!userPrincipal) {
             console.warn('no principal found for user with id: ' +
                 userId);
@@ -433,21 +441,41 @@ EncryptionUtils = {
             privateKey: keyPair.secretKey
         });
 
-        // use meteor call since the client might/should not be allowd
-        // to update the user document client-side
-        // store the private key as uInt8Array
-        Meteor.call('storeEncryptedPrivateKey', privateKey);
+
+        //generate new 24Byte asymNonce
+        var asymNonce = self.generate24ByteNonce();
+        // generate a random key for the document
+        var documentKey = EncryptionUtils.generateRandomKey();
+        // encrypt the document key with the users public key
+        var encryptedDocumentKey = self.asymEncryptWithKey(
+            documentKey,
+            asymNonce,
+            keyPair.publicKey,
+            keyPair.secretKey
+        );
 
         // add a principal for the user
         Principals.insert({
-            dataType: 'user',
+            dataType: 'usersPrincipal',
             dataId: userId,
             addedPasswordBytes: password.randomBytes,
             // store the public key as uInt8Array
             publicKey: keyPair.publicKey,
+            // store the encrypted private key as UInt8Array
+            privateKey: privateKey,
             // store the nonce key as uInt8Array
-            symNonce: nonce
+            symNonce: nonce,
+            // also store that the user document is shared with the user himself
+            encryptedPrivateKeys: [{
+                userId: userId,
+                key: encryptedDocumentKey,
+                asymNonce: asymNonce
+            }],
         });
+
+
+        self.encryptDocWithId(Meteor.user(), [], 'usersPrincipal',
+            documentKey);
     },
     /**
      * decrypts the users privateKey with the given password symmetrically
@@ -465,36 +493,37 @@ EncryptionUtils = {
             );
             return;
         }
-        // check if user already has a keypair
-        if (user.profile && user.profile.privateKey) {
-            console.info('private key found -> decrypting it now');
-            Meteor.subscribe('principals', function () {
-                var principal = self.getPrincipal('user', user._id);
+        Meteor.subscribe('principals', function () {
+            var principal = self.getPrincipal(
+                'usersPrincipal', user._id);
 
-                if (!principal) {
-                    console.warn('no user principal found');
-                    return;
-                }
 
-                password = self.generate32ByteKeyFromPassword(
-                    password, principal.addedPasswordBytes);
-
-                // decrypt private key of the user using his password and nonce
-                var privateKey = self.symDecryptWithKey(
-                    user.profile.privateKey,
-                    principal.symNonce,
-                    password.byteArray
+            // check if user already has a keypair
+            if (!principal) {
+                console.info(
+                    'no private key found -> generating one now'
                 );
+                // if not it is probably his first login -> generate keypair
+                self.extendProfile(password);
+                return;
+            }
+            console.info(
+                'private key found -> decrypting it now');
 
-                signedInSession.setAuth('privateKey', {
-                    privateKey: privateKey
-                });
+            password = self.generate32ByteKeyFromPassword(
+                password, principal.addedPasswordBytes);
+
+            // decrypt private key of the user using his password and nonce
+            var privateKey = self.symDecryptWithKey(
+                principal.privateKey,
+                principal.symNonce,
+                password.byteArray
+            );
+
+            signedInSession.setAuth('privateKey', {
+                privateKey: privateKey
             });
-        } else {
-            console.info('no private key found -> generating one now');
-            // if not it is probably his first login -> generate keypair
-            self.extendProfile(password);
-        }
+        });
     },
 
     /**
@@ -562,17 +591,14 @@ EncryptionUtils = {
             password.byteArray
         );
 
-        // use meteor call since the client might/should not be allowd
-        // to update the user document client-side
-        // store the private key as uInt8Array
-        Meteor.call('storeEncryptedPrivateKey', privateKey);
-
-        var principal = self.getPrincipal('user', Meteor.userId());
+        var principal = self.getPrincipal('usersPrincipal', Meteor.userId());
         // update the nonce
         Principals.update({
             _id: principal._id
         }, {
             $set: {
+                // restore the newly encrypted private key as UInt8Array
+                privateKey: privateKey,
                 addedPasswordBytes: password.randomBytes,
                 // store the nonce key as uInt8Array
                 symNonce: nonce

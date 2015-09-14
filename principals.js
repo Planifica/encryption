@@ -54,13 +54,3 @@ Principals.before.insert(function(userId, doc){
   doc.ownerId = userId;
   return doc;
 });
-
-if (Meteor.users.simpleSchema()) {
-  Meteor.users.attachSchema({
-    // gets encrypted with the users password
-    'profile.privateKey': {
-      type: Uint8Array,
-      optional: true
-    }
-  });
-}

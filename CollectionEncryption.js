@@ -22,8 +22,7 @@ var CONFIG_PAT = Match.Optional({
  * register a collection to encrypt/decrypt automtically
  * @param collection - the collection instance
  * @param fields - array of fields which will be encrypted
- * @param schema - the schema used for the collection
- * @param asyncCrypto: Boolean - wether to use RSA(true) or AES(false)
+ * @param config
  */
 CollectionEncryption = function (collection, fields, config) {
     var self = this;
@@ -40,8 +39,9 @@ CollectionEncryption = function (collection, fields, config) {
     // store the properties
     self.fields = fields;
     // check if simple schema is being used
-    if (_.isFunction(collection.simpleSchema)) {
-        self.schema = collection.simpleSchema();
+    if (_.isFunction(collection.simpleSchema) && !!collection.simpleSchema()) {
+        self._initSchema();
+        self.schema = self.collection.simpleSchema();
     }
     // build up the name of the principal using the collection name
     self.principalName = collection._name + 'Principal';
@@ -58,7 +58,41 @@ CollectionEncryption = function (collection, fields, config) {
 };
 
 _.extend(CollectionEncryption.prototype, {
+    /**
+     * returns the key of the encrypted field
+     * that indicates whether the doc is in encrypted or decrypted form
+     */
+    getEncryptedFieldKey: function () {
+        var self = this,
+            encryptedFieldKey = 'encrypted';
 
+        if (self.collection === Meteor.users) {
+            encryptedFieldKey = 'profile.encrypted';
+        }
+        return encryptedFieldKey;
+    },
+    /**
+     * addes the encrypted property to the schema of the collection
+     */
+    _initSchema: function () {
+        var self = this,
+            schema = {};
+
+        // init the encryption schema for the given collection client-side
+        schema[self.getEncryptedFieldKey()] = {
+            type: Boolean,
+            defaultValue: false
+        };
+        // attach the schema
+        self.collection.attachSchema(schema);
+
+        // tell server to init the encryption schema for the given collection
+        Meteor.call(
+            'initEncryptionSchema',
+            self.collection._name,
+            self.getEncryptedFieldKey()
+        );
+    },
     /**
      * listen to findOne operations on the given collection in order to decrypt
      * automtically
@@ -82,12 +116,12 @@ _.extend(CollectionEncryption.prototype, {
             return;
         }
         // if the doc already is decrypted, don't do anything
-        if (doc.encrypted === false) {
+        if (doc[self.getEncryptedFieldKey()] === false) {
             return;
         }
         // otherwise decrypt the document
         doc = EncryptionUtils.decryptDoc(doc, self.fields,
-            self.principalName);
+            self.principalName, self.getEncryptedFieldKey());
 
         return doc;
     },
@@ -161,7 +195,7 @@ _.extend(CollectionEncryption.prototype, {
     startDocEncryption: function (userId, doc) {
         var self = this;
 
-        doc.encrypted = false;
+        doc[self.getEncryptedFieldKey()] = false;
         // in case of a collection update we have a _id here which is not
         // in the (potential) schema
         if (doc.hasOwnProperty('_id')) {
@@ -177,7 +211,7 @@ _.extend(CollectionEncryption.prototype, {
         self._storeDocToEncrypt(doc);
         // unset fields that will be encrypted
         _.each(self.fields, function (field) {
-            if (doc.hasOwnProperty('field')) {
+            if (!!doc[field]) {
                 // for now we use -- to indicate that this field is still to be encrypted
                 // however this should never be visible in the UI since doc.encrypted
                 // can be used to wait for the fully decrypted document
@@ -208,9 +242,10 @@ _.extend(CollectionEncryption.prototype, {
 
         // check if a field that should be encrypted was edited
         _.each(self.fields, function (field) {
-            if (modifier.$set.hasOwnProperty(field)) {
+            var fieldValue = modifier.$set[field];
+            if (!!fieldValue) {
                 // store the modified state for later encryption
-                doc[field] = modifier.$set[field];
+                doc[field] = fieldValue;
                 // remove the UNencrypted information before storing into the db
                 modifier.$set[field] = '--';
                 needsEncryption = true;
@@ -222,7 +257,7 @@ _.extend(CollectionEncryption.prototype, {
             // if so just return the modifier - we have no need to adapt it
             return modifier;
         }
-        modifier.$set.encrypted = false;
+        modifier.$set[self.getEncryptedFieldKey()] = false;
         // tell the encryption package what data needs to encrypted next
         self._storeDocToEncrypt(doc);
         // unload warning while generating keys
@@ -256,26 +291,31 @@ _.extend(CollectionEncryption.prototype, {
         }
         // restore the document with its _id as it was before the insert
         docToEncrypt._id = doc._id;
-        // get encrypted doc
-        var encryptedDoc = EncryptionUtils.encryptDocWithId(
-            docToEncrypt, self.fields, self.principalName,
-            documentKey);
+        Meteor.subscribe('principals', docToEncrypt._id, function () {
+            // get encrypted doc
+            var encryptedDoc = EncryptionUtils.encryptDocWithId(
+                docToEncrypt, self.fields, self.principalName,
+                documentKey);
 
-        // the document is encrypted now and may be shown in the UI
-        encryptedDoc.encrypted = true;
+            // the document is encrypted now and may be shown in the UI
+            encryptedDoc[self.getEncryptedFieldKey()] =
+                true;
 
-        // update doc with encrypted fields
-        // use direct in order to circumvent any defined hooks
-        self.collection.direct.update({
-            _id: doc._id
-        }, {
-            $set: encryptedDoc
+            if (encryptedDoc) {
+                // update doc with encrypted fields
+                // use direct in order to circumvent any defined hooks
+                self.collection.direct.update({
+                    _id: doc._id
+                }, {
+                    $set: encryptedDoc
+                });
+            }
+            if (self.config.onFinishedDocEncryption) {
+                self.config.onFinishedDocEncryption(doc);
+            }
+            // unbind unload warning
+            $(window).unbind('beforeunload');
         });
-        if (self.config.onFinishedDocEncryption) {
-            self.config.onFinishedDocEncryption(doc);
-        }
-        // unbind unload warning
-        $(window).unbind('beforeunload');
     },
     /**
      * shares the doc with the given id with the user with the given id
