@@ -28,7 +28,6 @@ Package.onUse(function(api) {
   api.addFiles('principals.js', ['client', 'server']);
   api.addFiles('server.js', 'server');
   api.addFiles('utils.js', 'client');
-  api.addFiles('_.deep.js', ['client', 'server']);
   api.addFiles('EncryptionUtils.js', 'client');
   api.addFiles('CollectionEncryption.js', 'client');
 
