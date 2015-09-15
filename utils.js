@@ -1,4 +1,3 @@
-/* CryptoJS: true */
 window.secureShared = {
 
     // Generate a 256-bit key.

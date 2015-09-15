@@ -1,5 +1,3 @@
-/* global EncryptionUtils:true */
-
 var CONFIG_PAT = {
     enforceEmailVerification: Match.Optional(Boolean)
 };
