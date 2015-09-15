@@ -1,6 +1,3 @@
-/* global CollectionEncryption:true */
-/* global EncryptionUtils:true */
-
 var CONFIG_PAT = Match.Optional({
     /**
      * gets called once a key is generated

@@ -1,7 +1,6 @@
 Principals = new Meteor.Collection("principals");
 
-var Schema = {};
-Schema.Principal = new SimpleSchema({
+var SchemaPrincipal = new SimpleSchema({
   dataType: {
     type: String
   },
@@ -48,7 +47,7 @@ Schema.Principal = new SimpleSchema({
   }
 });
 
-Principals.attachSchema(Schema.Principal);
+Principals.attachSchema(SchemaPrincipal);
 
 Principals.before.insert(function(userId, doc){
   doc.ownerId = userId;
