@@ -20,7 +20,7 @@ Meteor.methods({
 });
 
 Security.defineMethod("ifCurrentUserIsOwner", {
-    fetch: [],
+    fetch: ['ownerId'],
     transform: null,
     deny: function (type, arg, userId, doc) {
         return userId !== doc.ownerId;
