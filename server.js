@@ -9,13 +9,31 @@ Meteor.methods({
         });
     },
     initEncryptionSchema: function (collectionName, fieldKey) {
-        var schema = {};
+        var schema = {},
+            collection = Mongo.Collection.get(collectionName),
+            currentSchema = {};
+
+        // check if the collection already has a schema
+        if (_.isFunction(collection.simpleSchema)) {
+            currentSchema = collection.simpleSchema()._schema;
+        }
+        // check if the existing schema already defines a the field
+        if (!!currentSchema[fieldKey]) {
+            // prevent overwriting of field
+            throw new Meteor.Error(
+                "Not-allowed",
+                "You are not allowed to overwrite this field"
+            );
+        }
+
         schema[fieldKey] = {
             type: Boolean,
+            // set the default value to false to indicate that no document
+            // is encrypted by default
             defaultValue: false
         };
         // add ecrypted field to the collection schema
-        Mongo.Collection.get(collectionName).attachSchema(schema);
+        collection.attachSchema(schema);
     }
 });
 
