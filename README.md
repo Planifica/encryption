@@ -110,7 +110,7 @@ Also there is no way of hacking only one key (e.g. your server's or database's p
 This package started with using RSA and AES for encryption as proposed in this [paper](http://css.csail.mit.edu/mylar/). However we switched to using the NaCl library, which uses the far more efficient alorithms ECC and Salsa20.
 
 ### Browser Support
-The browser support comes down to the support of UInt8Arrays, which are [not supported](http://caniuse.com/#feat=typedarrays) in IE9 abd IE8.
+The browser support comes down to the support of UInt8Arrays, which are [not supported](http://caniuse.com/#feat=typedarrays) in IE9 and IE8.
 
 ## Licence
 MIT. (c) maintained by Planifica.
