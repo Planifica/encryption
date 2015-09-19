@@ -282,12 +282,12 @@ _.extend(CollectionEncryption.prototype, {
         // generate a random key for the document
         var documentKey = EncryptionUtils.generateRandomKey();
 
+        // restore the document with its _id as it was before the insert
+        docToEncrypt._id = doc._id;
         // call the callback once the key is encrypted
         if (self.config.onKeyGenerated) {
             self.config.onKeyGenerated(documentKey, docToEncrypt);
         }
-        // restore the document with its _id as it was before the insert
-        docToEncrypt._id = doc._id;
         Meteor.subscribe('principals', docToEncrypt._id, function () {
             // get encrypted doc
             var encryptedDoc = EncryptionUtils.encryptDocWithId(
