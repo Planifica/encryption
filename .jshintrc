@@ -100,6 +100,7 @@
       // Our globals
       "CollectionEncryption": true,
       "EncryptionUtils": true,
-      "Principals": true
+      "Principals": true,
+      "collectionEncryptionBase": true
     }
 }

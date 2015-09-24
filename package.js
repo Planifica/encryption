@@ -26,10 +26,12 @@ Package.onUse(function(api) {
   api.addFiles('tweetnacl-js-master/nacl-fast.min.js', 'client');
 
   api.addFiles('principals.js', ['client', 'server']);
-  api.addFiles('server.js', 'server');
-  api.addFiles('utils.js', 'client');
-  api.addFiles('EncryptionUtils.js', 'client');
-  api.addFiles('CollectionEncryption.js', 'client');
+  api.addFiles('server/server.js', 'server');
+  api.addFiles('client/utils.js', 'client');
+  api.addFiles('client/EncryptionUtils.js', 'client');
+  api.addFiles('CollectionEncryptionBase.js', ['client', 'server']);
+  api.addFiles('client/CollectionEncryption.js', 'client');
+  api.addFiles('server/CollectionEncryption.js', 'server');
 
   api.export('CollectionEncryption');
   api.export('EncryptionUtils');

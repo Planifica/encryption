@@ -54,42 +54,7 @@ CollectionEncryption = function (collection, fields, config) {
     self._listenToRemove();
 };
 
-_.extend(CollectionEncryption.prototype, {
-    /**
-     * returns the key of the encrypted field
-     * that indicates whether the doc is in encrypted or decrypted form
-     */
-    getEncryptedFieldKey: function () {
-        var self = this,
-            encryptedFieldKey = 'encrypted';
-
-        if (self.collection === Meteor.users) {
-            encryptedFieldKey = 'profile.encrypted';
-        }
-        return encryptedFieldKey;
-    },
-    /**
-     * addes the encrypted property to the schema of the collection
-     */
-    _initSchema: function () {
-        var self = this,
-            schema = {};
-
-        // init the encryption schema for the given collection client-side
-        schema[self.getEncryptedFieldKey()] = {
-            type: Boolean,
-            defaultValue: false
-        };
-        // attach the schema
-        self.collection.attachSchema(schema);
-
-        // tell server to init the encryption schema for the given collection
-        Meteor.call(
-            'initEncryptionSchema',
-            self.collection._name,
-            self.getEncryptedFieldKey()
-        );
-    },
+_.extend(CollectionEncryption.prototype, collectionEncryptionBase, {
     /**
      * listen to findOne operations on the given collection in order to decrypt
      * automtically
