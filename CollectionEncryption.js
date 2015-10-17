@@ -288,31 +288,29 @@ _.extend(CollectionEncryption.prototype, {
         if (self.config.onKeyGenerated) {
             self.config.onKeyGenerated(documentKey, docToEncrypt);
         }
-        Meteor.subscribe('principals', docToEncrypt._id, function () {
-            // get encrypted doc
-            var encryptedDoc = EncryptionUtils.encryptDocWithId(
-                docToEncrypt, self.fields, self.principalName,
-                documentKey);
+        // get encrypted doc
+        var encryptedDoc = EncryptionUtils.encryptDocWithId(
+            docToEncrypt, self.fields, self.principalName,
+            documentKey);
 
-            // the document is encrypted now and may be shown in the UI
-            encryptedDoc[self.getEncryptedFieldKey()] =
-                true;
+        // the document is encrypted now and may be shown in the UI
+        encryptedDoc[self.getEncryptedFieldKey()] =
+            true;
 
-            if (encryptedDoc) {
-                // update doc with encrypted fields
-                // use direct in order to circumvent any defined hooks
-                self.collection.direct.update({
-                    _id: doc._id
-                }, {
-                    $set: encryptedDoc
-                });
-            }
-            if (self.config.onFinishedDocEncryption) {
-                self.config.onFinishedDocEncryption(doc);
-            }
-            // unbind unload warning
-            $(window).unbind('beforeunload');
-        });
+        if (encryptedDoc) {
+            // update doc with encrypted fields
+            // use direct in order to circumvent any defined hooks
+            self.collection.direct.update({
+                _id: doc._id
+            }, {
+                $set: encryptedDoc
+            });
+        }
+        if (self.config.onFinishedDocEncryption) {
+            self.config.onFinishedDocEncryption(doc);
+        }
+        // unbind unload warning
+        $(window).unbind('beforeunload');
     },
     /**
      * shares the doc with the given id with the user with the given id
