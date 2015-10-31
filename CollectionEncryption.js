@@ -135,11 +135,6 @@ _.extend(CollectionEncryption.prototype, {
         self.collection.before.insert(function (userId, doc) {
             self.startDocEncryption(userId, doc);
         });
-
-        // listen to after insert, so we can encrypt the document async
-        self.collection.after.insert(function (userId, doc) {
-            self.finishDocEncryption(doc);
-        });
     },
     /**
      * listen to update operations on the given collection in order to (re)encrypt
@@ -154,11 +149,6 @@ _.extend(CollectionEncryption.prototype, {
             // do not get stored in the db unencrypted
             modifier = self.startDocUpdate(userId,
                 doc, fieldNames, modifier);
-        });
-
-        self.collection.after.update(function (userId, doc) {
-            // trigger the actual encryption
-            self.finishDocEncryption(doc);
         });
     },
     /**
@@ -204,24 +194,8 @@ _.extend(CollectionEncryption.prototype, {
             // since collection2 will deny the db insert anyway
             return doc;
         }
-        // tell the encryption package what data needs to encrypted next
-        self._storeDocToEncrypt(doc);
-        // unset fields that will be encrypted
-        _.each(self.fields, function (field) {
-            if (!!doc[field]) {
-                // for now we use -- to indicate that this field is still to be encrypted
-                // however this should never be visible in the UI since doc.encrypted
-                // can be used to wait for the fully decrypted document
-                doc[field] = '--';
-            }
-        });
 
-        // unload warning while generating keys
-        $(window).bind('beforeunload', function () {
-            return 'Encryption will fail if you leave now!';
-        });
-
-        return doc;
+        return self.finishDocEncryption(doc);
     },
     /**
      * starts the encryption of a document by removing the content
@@ -233,8 +207,9 @@ _.extend(CollectionEncryption.prototype, {
      * @param modifier - the actual mongo modifier we need to adapt
      */
     startDocUpdate: function (userId, doc, fieldNames, modifier) {
-        var self = this;
-        var needsEncryption = false;
+        var self = this,
+            needsEncryption = false;
+
         modifier.$set = modifier.$set || {};
 
         // check if a field that should be encrypted was edited
@@ -242,10 +217,10 @@ _.extend(CollectionEncryption.prototype, {
             var fieldValue = modifier.$set[field];
             if (!!fieldValue) {
                 // store the modified state for later encryption
-                doc[field] = fieldValue;
-                // remove the UNencrypted information before storing into the db
-                modifier.$set[field] = '--';
+                EncryptionUtils.setDeep(doc, field, fieldValue);
                 needsEncryption = true;
+            } else {
+                EncryptionUtils.setDeep(doc, field, undefined);
             }
         });
 
@@ -254,13 +229,7 @@ _.extend(CollectionEncryption.prototype, {
             // if so just return the modifier - we have no need to adapt it
             return modifier;
         }
-        modifier.$set[self.getEncryptedFieldKey()] = false;
-        // tell the encryption package what data needs to encrypted next
-        self._storeDocToEncrypt(doc);
-        // unload warning while generating keys
-        $(window).bind('beforeunload', function () {
-            return 'Encryption will fail if you leave now!';
-        });
+        modifier.$set = self.finishDocEncryption(doc);
 
         return modifier;
     },
@@ -272,47 +241,33 @@ _.extend(CollectionEncryption.prototype, {
      *              values that should be encrypted, but holds the _id
      */
     finishDocEncryption: function (doc) {
-        var self = this,
-            docToEncrypt = self._getDocToEncrypt();
+        var self = this;
 
         // check if there is something to encrypt
-        if (!doc._id || !docToEncrypt) {
+        if (!doc) {
             return;
         }
         // generate a random key for the document
         var documentKey = EncryptionUtils.generateRandomKey();
 
-        // restore the document with its _id as it was before the insert
-        docToEncrypt._id = doc._id;
         // call the callback once the key is encrypted
         if (self.config.onKeyGenerated) {
-            self.config.onKeyGenerated(documentKey, docToEncrypt);
+            self.config.onKeyGenerated(documentKey, doc);
         }
-        Meteor.subscribe('principals', docToEncrypt._id, function () {
-            // get encrypted doc
-            var encryptedDoc = EncryptionUtils.encryptDocWithId(
-                docToEncrypt, self.fields, self.principalName,
-                documentKey);
 
-            // the document is encrypted now and may be shown in the UI
-            encryptedDoc[self.getEncryptedFieldKey()] =
-                true;
+        // get encrypted doc
+        var encryptedDoc = EncryptionUtils.encryptDocWithId(
+            doc, self.fields, self.principalName,
+            documentKey);
 
-            if (encryptedDoc) {
-                // update doc with encrypted fields
-                // use direct in order to circumvent any defined hooks
-                self.collection.direct.update({
-                    _id: doc._id
-                }, {
-                    $set: encryptedDoc
-                });
-            }
-            if (self.config.onFinishedDocEncryption) {
-                self.config.onFinishedDocEncryption(doc);
-            }
-            // unbind unload warning
-            $(window).unbind('beforeunload');
-        });
+        // the document is encrypted now and may be shown in the UI
+        encryptedDoc[self.getEncryptedFieldKey()] = true;
+
+        if (self.config.onFinishedDocEncryption) {
+            self.config.onFinishedDocEncryption(doc);
+        }
+
+        return encryptedDoc;
     },
     /**
      * shares the doc with the given id with the user with the given id

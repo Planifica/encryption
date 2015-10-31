@@ -22,6 +22,7 @@ Package.onUse(function(api) {
   api.use('jparker:crypto-core@0.1.0', 'client');
   api.use('jparker:crypto-base64@0.1.0', 'client');
   api.use('dburles:mongo-collection-instances@0.3.4', ['server']);
+  api.use('practicalmeteor:underscore-deep@0.9.2', 'client');
 
   api.addFiles('tweetnacl-js-master/nacl-fast.min.js', 'client');
 

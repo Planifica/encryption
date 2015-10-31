@@ -39,6 +39,21 @@ EncryptionUtils = {
             }
         });
     },
+    setDeep: function (obj, path, value) {
+        var i;
+        path = path.split('.');
+        for (i = 0; i < path.length - 1; i++) {
+            var emptyObj = {};
+            emptyObj[path[i]] = null;
+            obj = obj[path[i]] || emptyObj;
+        }
+
+        if (!value) {
+          delete obj[path[i]];
+        } else {
+          obj[path[i]] = value;
+        }
+    },
     /*
      * overrideable method that returns the current User
      * or whatever you want to use as your context
@@ -92,11 +107,12 @@ EncryptionUtils = {
         }
         // encrypt the desired fields
         _.each(fields, function (field) {
-            if (doc.hasOwnProperty(field)) {
+            var value = _.deep(doc, field);
+            if (value) {
                 // set field to the encrypted value
                 newDoc[field] = self.symEncryptWithKey(
                     // pick value
-                    doc[field],
+                    value,
                     symNonce,
                     documentKey
                 );
@@ -167,14 +183,14 @@ EncryptionUtils = {
         }
         // decrypt each given field
         _.each(fields, function (field) {
-            if (doc.hasOwnProperty(field)) {
+            if (_.deep(doc, field)) {
                 // set decrypted value
-                doc[field] = self.symDecryptWithKey(
+                self.setDeep(doc, field, self.symDecryptWithKey(
                     // pick deep value
-                    doc[field],
+                    _.deep(doc, field),
                     principal.symNonce,
                     decryptedDocumentKey
-                );
+                ));
             }
         });
         // set encrypted to false for better ui state handling
