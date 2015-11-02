@@ -133,7 +133,7 @@ _.extend(CollectionEncryption.prototype, {
         // set some properties on the document before inserting
         // like unsetting the fields that shall be encrypted
         self.collection.before.insert(function (userId, doc) {
-            self.startDocEncryption(userId, doc);
+            doc = self.startDocEncryption(userId, doc);
         });
     },
     /**
@@ -182,14 +182,10 @@ _.extend(CollectionEncryption.prototype, {
     startDocEncryption: function (userId, doc) {
         var self = this;
 
-        doc[self.getEncryptedFieldKey()] = false;
-        // in case of a collection update we have a _id here which is not
-        // in the (potential) schema
-        if (doc.hasOwnProperty('_id')) {
-            delete doc._id;
-        }
+        EncryptionUtils.setDeep(doc, self.getEncryptedFieldKey(), false);
+
         // check if doc matches the schema
-        if (self.schema && !Match.test(doc, self.schema)) {
+        if (self.schema && !Match.test(_.omit(doc, '_id'), self.schema)) {
             // if the document does not match the schema we stop before encrypting
             // since collection2 will deny the db insert anyway
             return doc;
