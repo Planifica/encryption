@@ -1,5 +1,6 @@
 var CONFIG_PAT = {
-    enforceEmailVerification: Match.Optional(Boolean)
+    enforceEmailVerification: Match.Optional(Boolean),
+    onGeneratedKeypair: Match.Optional(Function)
 };
 
 // private key
@@ -19,7 +20,8 @@ EncryptionUtils = {
      * standard options
      */
     options: {
-        enforceEmailVerification: true
+        enforceEmailVerification: true,
+        onGeneratedKeypair: function () {}
     },
     hasPrivateKey: function () {
         if (getPrivateKey()) {
@@ -487,9 +489,9 @@ EncryptionUtils = {
             }],
         });
 
+        self.onGeneratedKeypair();
 
-        self.encryptDocWithId(Meteor.user(), [], 'usersPrincipal',
-            documentKey);
+        self.encryptDocWithId(Meteor.user(), [], 'usersPrincipal', documentKey);
     },
     /**
      * decrypts the users privateKey with the given password symmetrically
