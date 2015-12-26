@@ -92,7 +92,8 @@ EncryptionUtils = {
             // client only so this works :)
             user = Meteor.user(),
             newDoc = {},
-            symNonce = self.generate24ByteNonce();
+            symNonce = self.generate24ByteNonce()
+            asymNonce = self.generate24ByteNonce();
 
         // fetch a potential existing principal
         // - this might be the case in an update
@@ -121,14 +122,20 @@ EncryptionUtils = {
             }
         });
         if (existingPrincipal) {
-            // if the doc was just updated then return
-            // since it already has a valid principal
-            // and is potentially shared with users
-            return newDoc;
+            var isSharedWithUser = _.find(
+                existingPrincipal.encryptedPrivateKeys,
+                function(encryptedKeyInfo) {
+                    return encryptedKeyInfo.userId === user._id;
+                }
+            );
+            if (isSharedWithUser) {
+                // if the doc was just updated then return
+                // since it already has a valid principal
+                // and is potentially shared with users
+                return newDoc;
+            }
         }
 
-        //generate new 24Byte asymNonce
-        var asymNonce = self.generate24ByteNonce();
         var keyPairForDocumentKey = nacl.box.keyPair();
 
         // get the principal of the user
@@ -143,19 +150,31 @@ EncryptionUtils = {
             userPrincipal.publicKey, keyPairForDocumentKey.secretKey
         );
 
-        // create the principle in the database
-        Principals.insert({
-            dataType: name,
-            dataId: doc._id,
-            encryptedPrivateKeys: [{
-                userId: user._id,
-                key: encryptedDocumentKey,
-                asymNonce: asymNonce
-            }],
-            publicKey: keyPairForDocumentKey.publicKey,
-            privateKey: keyPairForDocumentKey.secretKey,
-            symNonce: symNonce
-        });
+        if (existingPrincipal) {
+            Principals.update(existingPrincipal._id, {
+                $push: {
+                    encryptedPrivateKeys: {
+                        userId: user._id,
+                        key: encryptedDocumentKey,
+                        asymNonce: asymNonce
+                    }
+                }
+            });
+        } else {
+            // create the principle in the database
+            Principals.insert({
+                dataType: name,
+                dataId: doc._id,
+                encryptedPrivateKeys: [{
+                    userId: user._id,
+                    key: encryptedDocumentKey,
+                    asymNonce: asymNonce
+                }],
+                publicKey: keyPairForDocumentKey.publicKey,
+                privateKey: keyPairForDocumentKey.secretKey,
+                symNonce: symNonce
+            });
+        }
 
         return newDoc;
     },
