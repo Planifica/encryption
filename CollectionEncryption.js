@@ -113,7 +113,7 @@ _.extend(CollectionEncryption.prototype, {
             return;
         }
         // if the doc already is decrypted, don't do anything
-        if (doc[self.getEncryptedFieldKey()] === false) {
+        if (!_.deep(doc, self.getEncryptedFieldKey())) {
             return;
         }
         // otherwise decrypt the document
@@ -219,7 +219,6 @@ _.extend(CollectionEncryption.prototype, {
                 EncryptionUtils.setDeep(doc, field, undefined);
             }
         });
-
         // check if fields that need to be encrypted were modified
         if (!needsEncryption) {
             // if so just return the modifier - we have no need to adapt it
