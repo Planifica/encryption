@@ -205,6 +205,11 @@ _.extend(CollectionEncryption.prototype, {
             return doc;
         }
         // tell the encryption package what data needs to encrypted next
+        _.each(self.fields, function (field) {
+            if (!doc[field]) {
+                doc[field] = ''
+            }
+        })
         self._storeDocToEncrypt(doc);
         // unset fields that will be encrypted
         _.each(self.fields, function (field) {
@@ -240,12 +245,14 @@ _.extend(CollectionEncryption.prototype, {
         // check if a field that should be encrypted was edited
         _.each(self.fields, function (field) {
             var fieldValue = modifier.$set[field];
-            if (!!fieldValue) {
+            if (!_.isUndefined(fieldValue) && !_.isNull(fieldValue)) {
                 // store the modified state for later encryption
                 doc[field] = fieldValue;
                 // remove the UNencrypted information before storing into the db
                 modifier.$set[field] = '--';
                 needsEncryption = true;
+            } else {
+              doc[field] = ''
             }
         });
 
